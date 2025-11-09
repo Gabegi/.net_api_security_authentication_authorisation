@@ -1,4 +1,4 @@
-using Foundational_Authentication.Data;
+using SecureApi.Data;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);

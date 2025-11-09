@@ -1,7 +1,7 @@
-namespace Foundational_Authentication.Data;
+namespace SecureApi.Data;
 
 using Microsoft.EntityFrameworkCore;
-using Foundational_Authentication.Models;
+using SecureApi.Models;
 
 /// <summary>
 /// Application database context for Entity Framework Core.

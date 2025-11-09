@@ -1,4 +1,4 @@
-namespace Foundational_Authentication.Models;
+namespace SecureApi.Models;
 
 using System.ComponentModel.DataAnnotations;
 
