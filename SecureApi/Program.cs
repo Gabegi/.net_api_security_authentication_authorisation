@@ -1,5 +1,6 @@
 using SecureApi.Data;
 using SecureApi.Endpoints;
+using SecureApi.Middleware;
 using SecureApi.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -72,17 +73,24 @@ using (var scope = app.Services.CreateScope())
 }
 
 // ───────────────────────────────────────────────────────────────
-// MIDDLEWARE PIPELINE
+// MIDDLEWARE PIPELINE (Order matters!)
 // ───────────────────────────────────────────────────────────────
 
-// HTTPS Redirection (HTTP → HTTPS)
-app.UseHttpsRedirection();
+// 1. Exception handling (first - catch all errors)
+app.UseExceptionHandler("/error");
 
-// HSTS (only in production, not on localhost)
+// 2. Security headers middleware (before HTTPS redirect)
+app.UseSecurityHeaders();
+
+// 3. HSTS (only in production, not on localhost)
+// Strict-Transport-Security: forces HTTPS for 1 year
 if (!app.Environment.IsDevelopment())
 {
     app.UseHsts();
 }
+
+// 4. HTTPS redirection (HTTP → HTTPS)
+app.UseHttpsRedirection();
 
 if (app.Environment.IsDevelopment())
 {
