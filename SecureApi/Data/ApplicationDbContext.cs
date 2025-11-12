@@ -23,6 +23,11 @@ public class ApplicationDbContext : DbContext
     public DbSet<User> Users { get; set; } = null!;
 
     /// <summary>
+    /// Gets or sets the Products table.
+    /// </summary>
+    public DbSet<Product> Products { get; set; } = null!;
+
+    /// <summary>
     /// Configures the model and applies constraints, relationships, and indexes.
     /// </summary>
     /// <param name="modelBuilder">The model builder</param>
@@ -78,6 +83,50 @@ public class ApplicationDbContext : DbContext
 
             // Table name
             entity.ToTable("Users");
+        });
+
+        // Configure Product entity
+        modelBuilder.Entity<Product>(entity =>
+        {
+            // Primary key
+            entity.HasKey(e => e.Id)
+                .HasName("PK_Product_Id");
+
+            // Name column configuration
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(200)
+                .HasColumnType("TEXT");
+
+            // Description column configuration
+            entity.Property(e => e.Description)
+                .IsRequired()
+                .HasMaxLength(2000)
+                .HasColumnType("TEXT");
+
+            // Price column configuration
+            entity.Property(e => e.Price)
+                .IsRequired()
+                .HasColumnType("DECIMAL(18,2)");
+
+            // Category column configuration
+            entity.Property(e => e.Category)
+                .IsRequired()
+                .HasMaxLength(100)
+                .HasColumnType("TEXT");
+
+            // StockQuantity column configuration
+            entity.Property(e => e.StockQuantity)
+                .IsRequired();
+
+            // CreatedAt column configuration
+            entity.Property(e => e.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .ValueGeneratedOnAdd();
+
+            // Table name
+            entity.ToTable("Products");
         });
     }
 }
