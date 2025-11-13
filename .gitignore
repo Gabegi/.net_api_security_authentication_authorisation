@@ -56,3 +56,15 @@ nunit-*.xml
 .vs/APISecurity.NET/v17/.suo
 .vs/APISecurity.NET/DesignTimeBuild/.dtbcache.v2
 .vs/slnx.sqlite
+.vs/APISecurity.NET/DesignTimeBuild/.dtbcache.v2
+/.vs/APISecurity.NET/DesignTimeBuild
+/.vs/APISecurity.NET/v17
+*.bin
+*.v2
+/.vs/APISecurity.NET/DesignTimeBuild
+/.vs
+/.vs
+/.vs/APISecurity.NET
+*.v2
+/.vs/APISecurity.NET
+/.vs/APISecurity.NET

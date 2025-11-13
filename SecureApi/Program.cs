@@ -40,6 +40,28 @@ builder.Services.AddHsts(options =>
     options.Preload = true;                         // Submit to browser preload list
 });
 
+// ───────────────────────────────────────────────────────────────
+// CORS CONFIGURATION
+// ───────────────────────────────────────────────────────────────
+// NOTE: CORS is ONLY needed for browser-based frontends (React, Vue, Angular, etc.)
+// Postman, curl, mobile apps, and server-to-server calls DON'T need CORS
+// This is here for learning purposes - replace with your actual frontend domain
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins(
+                "https://myapp.com",           // Replace with your frontend domain
+                "https://www.myapp.com",       // Include www version if needed
+                "http://localhost:3000",       // Local development (React, Vue, etc.)
+                "http://localhost:5173")       // Vite dev server
+            .WithMethods("GET", "POST", "PUT", "DELETE")
+            .WithHeaders("Content-Type", "Authorization")
+            .AllowCredentials();               // Allow cookies/auth headers
+    });
+});
+
 var app = builder.Build();
 
 // ───────────────────────────────────────────────────────────────
@@ -91,6 +113,10 @@ if (!app.Environment.IsDevelopment())
 
 // 4. HTTPS redirection (HTTP → HTTPS)
 app.UseHttpsRedirection();
+
+// 5. CORS middleware (must be before UseAuthentication and UseAuthorization)
+// Allows browser-based frontends to make requests to this API
+app.UseCors();
 
 if (app.Environment.IsDevelopment())
 {
