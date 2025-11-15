@@ -43,4 +43,9 @@ public class User
     /// Gets or sets the date and time of the user's last login.
     /// </summary>
     public DateTime? LastLoginAt { get; set; }
+
+    /// <summary>
+    /// Gets or sets the user's role (e.g., "User", "Admin").
+    /// </summary>
+    public string Role { get; set; } = "User";
 }

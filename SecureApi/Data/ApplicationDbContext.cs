@@ -28,6 +28,11 @@ public class ApplicationDbContext : DbContext
     public DbSet<Product> Products { get; set; } = null!;
 
     /// <summary>
+    /// Gets or sets the RefreshTokens table.
+    /// </summary>
+    public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
+
+    /// <summary>
     /// Configures the model and applies constraints, relationships, and indexes.
     /// </summary>
     /// <param name="modelBuilder">The model builder</param>
@@ -81,6 +86,13 @@ public class ApplicationDbContext : DbContext
             entity.HasIndex(e => e.LastLoginAt)
                 .HasDatabaseName("IX_User_LastLoginAt");
 
+            // Role column configuration
+            entity.Property(e => e.Role)
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasDefaultValue("User")
+                .HasColumnType("TEXT");
+
             // Table name
             entity.ToTable("Users");
         });
@@ -127,6 +139,69 @@ public class ApplicationDbContext : DbContext
 
             // Table name
             entity.ToTable("Products");
+        });
+
+        // Configure RefreshToken entity
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            // Primary key
+            entity.HasKey(e => e.Id)
+                .HasName("PK_RefreshToken_Id");
+
+            // Token column configuration
+            entity.Property(e => e.Token)
+                .IsRequired()
+                .HasMaxLength(500)
+                .HasColumnType("TEXT");
+
+            // Create a unique index on Token for fast lookups
+            entity.HasIndex(e => e.Token)
+                .IsUnique()
+                .HasDatabaseName("IX_RefreshToken_Token_Unique");
+
+            // UserId foreign key
+            entity.Property(e => e.UserId)
+                .IsRequired();
+
+            // ExpiresAt column configuration
+            entity.Property(e => e.ExpiresAt)
+                .IsRequired()
+                .HasColumnType("DATETIME");
+
+            // CreatedAt column configuration
+            entity.Property(e => e.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .ValueGeneratedOnAdd();
+
+            // RevokedAt column configuration (nullable)
+            entity.Property(e => e.RevokedAt)
+                .IsRequired(false)
+                .HasColumnType("DATETIME");
+
+            // CreatedByIp column configuration
+            entity.Property(e => e.CreatedByIp)
+                .IsRequired()
+                .HasMaxLength(45)
+                .HasColumnType("TEXT");
+
+            // Relationship with User (one user can have many refresh tokens)
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_RefreshToken_User_UserId");
+
+            // Index on UserId for finding tokens by user
+            entity.HasIndex(e => e.UserId)
+                .HasDatabaseName("IX_RefreshToken_UserId");
+
+            // Index on ExpiresAt for cleanup queries (finding expired tokens)
+            entity.HasIndex(e => e.ExpiresAt)
+                .HasDatabaseName("IX_RefreshToken_ExpiresAt");
+
+            // Table name
+            entity.ToTable("RefreshTokens");
         });
     }
 }
