@@ -24,6 +24,9 @@ builder.Services.AddSwaggerGen();
 // Validation
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
+// Services
+builder.Services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
+
 // ───────────────────────────────────────────────────────────────
 // HTTPS CONFIGURATION
 // ───────────────────────────────────────────────────────────────
