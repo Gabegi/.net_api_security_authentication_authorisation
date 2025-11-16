@@ -1,3 +1,4 @@
+using FluentValidation;
 using SecureApi.Data;
 using SecureApi.Endpoints;
 using SecureApi.Middleware;
@@ -19,6 +20,9 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // API Documentation
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Validation
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 // ───────────────────────────────────────────────────────────────
 // HTTPS CONFIGURATION
