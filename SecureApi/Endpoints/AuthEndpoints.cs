@@ -1,3 +1,4 @@
+using SecureApi.Data;
 using SecureApi.DTOs;
 using SecureApi.Filters;
 using SecureApi.Models;

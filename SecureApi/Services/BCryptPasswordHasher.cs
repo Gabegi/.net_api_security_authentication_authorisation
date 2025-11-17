@@ -14,7 +14,7 @@ public class BCryptPasswordHasher : IPasswordHasher
     /// <returns>The BCrypt hash (includes salt).</returns>
     public string HashPassword(string password)
     {
-        return BCrypt.HashPassword(password, workFactor: 12);
+        return BCrypt.Net.BCrypt.HashPassword(password, workFactor: 12);
     }
 
     /// <summary>
@@ -27,7 +27,7 @@ public class BCryptPasswordHasher : IPasswordHasher
     {
         try
         {
-            return BCrypt.Verify(password, hash);
+            return BCrypt.Net.BCrypt.Verify(password, hash);
         }
         catch
         {
