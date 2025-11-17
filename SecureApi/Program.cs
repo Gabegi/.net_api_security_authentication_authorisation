@@ -1,9 +1,11 @@
 using FluentValidation;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using SecureApi.Data;
 using SecureApi.Endpoints;
 using SecureApi.Middleware;
 using SecureApi.Models;
-using Microsoft.EntityFrameworkCore;
+using SecureApi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +28,32 @@ builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 // Services
 builder.Services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
+builder.Services.AddScoped<ITokenService, TokenService>();
+
+// Authentication
+var jwtSettings = builder.Configuration.GetSection("Jwt");
+var secretKey = jwtSettings["SecretKey"]
+    ?? throw new InvalidOperationException("JWT SecretKey not configured");
+
+builder.Services
+    .AddAuthentication("Bearer")
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new()
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(secretKey)),
+            ValidateIssuer = true,
+            ValidIssuer = jwtSettings["Issuer"],
+            ValidateAudience = true,
+            ValidAudience = jwtSettings["Audience"],
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero
+        };
+    });
+
+// Authorization
+builder.Services.AddAuthorization();
 
 // ───────────────────────────────────────────────────────────────
 // HTTPS CONFIGURATION
