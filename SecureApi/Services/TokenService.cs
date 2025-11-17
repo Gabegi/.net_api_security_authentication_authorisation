@@ -77,22 +77,37 @@ public class TokenService : ITokenService
     }
 
     /// <summary>
-    /// Generates a long-lived refresh token.
+    /// Generates a long-lived refresh token (NOT a JWT, just a random string).
+    /// Input: IP address
+    /// Output: RefreshToken object (NOT saved yet)
+    /// Database: No interaction
+    /// Note: Token is just random bytes, NOT a JWT!
     /// </summary>
     public RefreshToken GenerateRefreshToken(string ipAddress)
     {
+        // Step 1: Get expiry configuration
         var jwtSettings = _configuration.GetSection("Jwt");
         var expiryDays = int.Parse(jwtSettings["RefreshTokenExpiryDays"] ?? "7");
 
-        var randomBytes = new byte[64];
-        using var rng = RandomNumberGenerator.Create();
-        rng.GetBytes(randomBytes);
+        // Step 2: Generate cryptographically secure random bytes
+        var randomBytes = new byte[64];                      // 64 bytes = 512 bits
+        using var rng = RandomNumberGenerator.Create();      // Crypto-safe random
+        rng.GetBytes(randomBytes);                           // Fill with random data
 
+        // Step 3: Create RefreshToken object
         return new RefreshToken
         {
+            // Convert bytes to Base64 string
+            // Result: "xK8j2mN9pQ3rT5vW7yZ0aB4cD6eF8gH1iJ3kL5mN7oP9qR1sT3uV5wX7yZ0=="
             Token = Convert.ToBase64String(randomBytes),
+
+            // Calculate expiration date (7 days from now)
             ExpiresAt = DateTime.UtcNow.AddDays(expiryDays),
+
+            // Track where token was created (for audit/security)
             CreatedByIp = ipAddress
+
+            // UserId NOT set here - caller must set it!
         };
     }
 
