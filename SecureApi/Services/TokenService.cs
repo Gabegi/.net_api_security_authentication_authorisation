@@ -179,16 +179,37 @@ public class TokenService : ITokenService
 
     /// <summary>
     /// Revokes a refresh token (for logout).
+    /// Input: Refresh token string
+    /// Output: Nothing (void)
+    /// Database: Update token (set RevokedAt)
     /// </summary>
     public async Task RevokeTokenAsync(string token)
     {
+        // ===== STEP 1: Find token in database =====
         var refreshToken = await _context.RefreshTokens
             .FirstOrDefaultAsync(rt => rt.Token == token);
 
+        // Query: SELECT * FROM RefreshTokens WHERE Token = 'xyz789'
+
+        // ===== STEP 2: Check if exists and active =====
         if (refreshToken != null && refreshToken.IsActive)
         {
+            // Only revoke if:
+            // - Token exists (not null)
+            // - Token is active (not already revoked, not expired)
+
+            // ===== STEP 3: Revoke it =====
             refreshToken.RevokedAt = DateTime.UtcNow;
+
+            // ===== STEP 4: Save to database =====
             await _context.SaveChangesAsync();
+
+            // UPDATE RefreshTokens
+            // SET RevokedAt = '2025-11-16 10:30:00'
+            // WHERE Token = 'xyz789'
         }
+
+        // If token doesn't exist or already revoked → silently do nothing
+        // This is safe - already logged out or invalid token
     }
 }

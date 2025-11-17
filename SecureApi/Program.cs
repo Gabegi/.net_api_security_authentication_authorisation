@@ -159,10 +159,17 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// 6. Authentication (verify JWT tokens)
+app.UseAuthentication();
+
+// 7. Authorization (check permissions)
+app.UseAuthorization();
+
 // ───────────────────────────────────────────────────────────────
 // MAP ENDPOINTS
 // ───────────────────────────────────────────────────────────────
 
+app.MapAuthEndpoints();
 app.MapProductEndpoints();
 
 app.Run();
