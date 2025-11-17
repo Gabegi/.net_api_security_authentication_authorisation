@@ -1,11 +1,10 @@
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using SecureApi.Data;
-using SecureApi.Endpoints;
-using SecureApi.Middleware;
-using SecureApi.Models;
-using SecureApi.Services;
+using SecureApi.Infrastructure.Persistence;
+using SecureApi.API.Endpoints;
+using SecureApi.Infrastructure.Persistence.Models;
+using SecureApi.Application.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -136,10 +135,7 @@ using (var scope = app.Services.CreateScope())
 // 1. Exception handling (first - catch all errors)
 app.UseExceptionHandler("/error");
 
-// 2. Security headers middleware (before HTTPS redirect)
-app.UseSecurityHeaders();
-
-// 3. HSTS (only in production, not on localhost)
+// 2. HSTS (only in production, not on localhost)
 // Strict-Transport-Security: forces HTTPS for 1 year
 if (!app.Environment.IsDevelopment())
 {
