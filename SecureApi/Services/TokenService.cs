@@ -112,41 +112,68 @@ public class TokenService : ITokenService
     }
 
     /// <summary>
-    /// Refreshes an access token using a valid refresh token.
+    /// Refreshes an access token using a valid refresh token (Most Complex!).
+    /// Input: Refresh token string, IP
+    /// Output: New access token + new refresh token
+    /// Database: Read old token, save new token, revoke old token (TOKEN ROTATION)
     /// </summary>
     public async Task<TokenResponse> RefreshTokenAsync(string token, string ipAddress)
     {
-        // Find the refresh token
+        // ===== STEP 1: Find token in database =====
         var refreshToken = await _context.RefreshTokens
-            .Include(rt => rt.User)
+            .Include(rt => rt.User)  // Load associated User data
             .FirstOrDefaultAsync(rt => rt.Token == token);
 
-        // Validate token exists and is active
+        // Database query:
+        // SELECT * FROM RefreshTokens
+        // JOIN Users ON RefreshTokens.UserId = Users.Id
+        // WHERE Token = 'abc123'
+
+        // ===== STEP 2: Validate =====
         if (refreshToken == null || !refreshToken.IsActive)
         {
+            // refreshToken == null → Token doesn't exist
+            // !IsActive → Token expired or already revoked
             throw new UnauthorizedAccessException("Invalid or expired refresh token");
         }
 
-        // Revoke old token
+        // IsActive checks: RevokedAt == null && DateTime.UtcNow < ExpiresAt
+
+        // ===== STEP 3: Revoke old token (security!) =====
         refreshToken.RevokedAt = DateTime.UtcNow;
+        // Mark as revoked - can't be used again
+        // This is TOKEN ROTATION - prevents reuse
 
-        // Generate new tokens
+        // ===== STEP 4: Generate new access token =====
         var newAccessToken = GenerateAccessToken(
-            refreshToken.User.Id,
-            refreshToken.User.Email,
-            refreshToken.User.Role ?? DEFAULT_ROLE);
+            refreshToken.User.Id,              // From DB
+            refreshToken.User.Email,           // From DB
+            refreshToken.User.Role ?? DEFAULT_ROLE);  // From DB (default if null)
+        // Calls GenerateAccessToken() above
+        // Returns: "eyJ..." (new JWT)
 
+        // ===== STEP 5: Generate new refresh token =====
         var newRefreshToken = GenerateRefreshToken(ipAddress);
-        newRefreshToken.UserId = refreshToken.UserId;
+        // Calls GenerateRefreshToken() above
+        // Returns: RefreshToken object with new random string
 
-        // Save new refresh token
+        newRefreshToken.UserId = refreshToken.UserId;
+        // Link to user
+
+        // ===== STEP 6: Save new refresh token to DB =====
         _context.RefreshTokens.Add(newRefreshToken);
         await _context.SaveChangesAsync();
 
+        // Database now has:
+        // Old token: RevokedAt = 2025-11-16 (can't use)
+        // New token: RevokedAt = null (active)
+
+        // ===== STEP 7: Return response =====
         return new TokenResponse(
-            AccessToken: newAccessToken,
-            RefreshToken: newRefreshToken.Token,
+            AccessToken: newAccessToken,           // "eyJ..." (15 min)
+            RefreshToken: newRefreshToken.Token,   // "xyz789..." (7 days)
             ExpiresIn: int.Parse(_configuration.GetSection("Jwt")["AccessTokenExpiryMinutes"] ?? "15") * 60
+            // 15 min * 60 sec = 900 seconds
         );
     }
 
