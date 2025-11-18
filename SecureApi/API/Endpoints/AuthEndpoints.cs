@@ -63,104 +63,60 @@ public static class AuthEndpoints
 
     /// <summary>
     /// Handles user registration.
-    /// Delegates business logic to AuthService, returns appropriate HTTP responses.
+    /// Delegates business logic to AuthService, result mapping to AuthResultHandler.
     /// </summary>
     private static async Task<IResult> HandleRegister(
         RegisterRequest request,
         IAuthService authService,
+        IAuthResultHandler resultHandler,
         HttpContext httpContext)
     {
-        try
-        {
-            var tokenResponse = await authService.RegisterAsync(
-                request,
-                HttpContextHelper.GetClientIp(httpContext)
-            );
-
-            return Results.Created("/api/auth/register", tokenResponse);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Results.Conflict(new { error = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return Results.BadRequest(new { error = "Registration failed", details = ex.Message });
-        }
+        return await resultHandler.HandleRegisterAsync(
+            () => authService.RegisterAsync(request, HttpContextHelper.GetClientIp(httpContext))
+        );
     }
 
     /// <summary>
     /// Handles user login.
-    /// Delegates business logic to AuthService, returns appropriate HTTP responses.
+    /// Delegates business logic to AuthService, result mapping to AuthResultHandler.
     /// </summary>
     private static async Task<IResult> HandleLogin(
         LoginRequest request,
         IAuthService authService,
+        IAuthResultHandler resultHandler,
         HttpContext httpContext)
     {
-        try
-        {
-            var tokenResponse = await authService.LoginAsync(
-                request,
-                HttpContextHelper.GetClientIp(httpContext)
-            );
-
-            return Results.Ok(tokenResponse);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Results.Unauthorized();
-        }
-        catch (Exception ex)
-        {
-            return Results.BadRequest(new { error = "Login failed", details = ex.Message });
-        }
+        return await resultHandler.HandleLoginAsync(
+            () => authService.LoginAsync(request, HttpContextHelper.GetClientIp(httpContext))
+        );
     }
 
     /// <summary>
     /// Handles token refresh.
-    /// Delegates business logic to AuthService, returns appropriate HTTP responses.
+    /// Delegates business logic to AuthService, result mapping to AuthResultHandler.
     /// </summary>
     private static async Task<IResult> HandleRefresh(
         RefreshRequest request,
         IAuthService authService,
+        IAuthResultHandler resultHandler,
         HttpContext httpContext)
     {
-        try
-        {
-            var tokenResponse = await authService.RefreshTokenAsync(
-                request,
-                HttpContextHelper.GetClientIp(httpContext)
-            );
-
-            return Results.Ok(tokenResponse);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Results.Unauthorized();
-        }
-        catch (Exception ex)
-        {
-            return Results.BadRequest(new { error = "Token refresh failed", details = ex.Message });
-        }
+        return await resultHandler.HandleRefreshAsync(
+            () => authService.RefreshTokenAsync(request, HttpContextHelper.GetClientIp(httpContext))
+        );
     }
 
     /// <summary>
     /// Handles user logout.
-    /// Delegates business logic to AuthService, returns appropriate HTTP responses.
+    /// Delegates business logic to AuthService, result mapping to AuthResultHandler.
     /// </summary>
     private static async Task<IResult> HandleLogout(
         LogoutRequest request,
-        IAuthService authService)
+        IAuthService authService,
+        IAuthResultHandler resultHandler)
     {
-        try
-        {
-            await authService.LogoutAsync(request);
-            return Results.Ok(new { message = "Logged out successfully" });
-        }
-        catch (Exception ex)
-        {
-            return Results.BadRequest(new { error = "Logout failed", details = ex.Message });
-        }
+        return await resultHandler.HandleLogoutAsync(
+            () => authService.LogoutAsync(request)
+        );
     }
 }

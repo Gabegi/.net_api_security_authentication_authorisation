@@ -29,6 +29,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAuthResultHandler, AuthResultHandler>();
 
 // Authentication
 var jwtSettings = builder.Configuration.GetSection("Jwt");
