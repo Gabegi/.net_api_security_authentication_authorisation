@@ -52,6 +52,7 @@ public class AuthService : IAuthService
         {
             Email = request.Email,
             FullName = request.FullName,
+            BirthDate = request.BirthDate,
             PasswordHash = hashedPassword,
             Role = "User" // Default role for new users
         };

@@ -19,4 +19,9 @@ public class RegisterRequest
     /// User's full name.
     /// </summary>
     public string FullName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// User's date of birth (required for age verification).
+    /// </summary>
+    public DateTime BirthDate { get; set; }
 }

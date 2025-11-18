@@ -35,9 +35,16 @@ public class User
     public string FullName { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the user's date of birth.
+    /// Required for age verification and age-restricted features.
+    /// </summary>
+    [Required(ErrorMessage = "Birth date is required")]
+    public DateTime BirthDate { get; set; }
+
+    /// <summary>
     /// Gets or sets the date and time when the user was created.
     /// </summary>
-    public DateTime CreatedAt { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
     /// Gets or sets the date and time of the user's last login.

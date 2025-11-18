@@ -31,5 +31,10 @@ public class RegisterRequestValidator : AbstractValidator<RegisterRequest>
             .NotEmpty().WithMessage("Full name is required")
             .MinimumLength(2).WithMessage("Full name must be at least 2 characters")
             .MaximumLength(100).WithMessage("Full name must not exceed 100 characters");
+
+        RuleFor(x => x.BirthDate)
+            .NotEmpty().WithMessage("Birth date is required")
+            .LessThan(DateTime.Today).WithMessage("Birth date must be in the past")
+            .GreaterThan(DateTime.Today.AddYears(-120)).WithMessage("Birth date cannot be more than 120 years ago");
     }
 }
