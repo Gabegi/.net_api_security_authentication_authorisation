@@ -69,7 +69,8 @@ public static class ProductEndpoints
             return Results.Ok(product);
         })
             .WithName("UpdateProduct")
-            .WithSummary("Update a product");
+            .WithSummary("Update a product")
+            .RequireAuthorization();
 
         // DELETE /api/products/{id}
         group.MapDelete("/{id}", async (int id, ApplicationDbContext db) =>
@@ -82,7 +83,8 @@ public static class ProductEndpoints
             return Results.NoContent();
         })
             .WithName("DeleteProduct")
-            .WithSummary("Delete a product");
+            .WithSummary("Delete a product")
+            .RequireAuthorization();
     }
 }
 
