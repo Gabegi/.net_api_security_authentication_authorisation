@@ -1,9 +1,8 @@
-using SecureApi.Infrastructure.Persistence;
 using SecureApi.Application.DTOs.Requests;
 using SecureApi.Application.DTOs.Responses;
 using SecureApi.API.Filters;
-using SecureApi.Infrastructure.Persistence.Models;
-using Microsoft.EntityFrameworkCore;
+using SecureApi.API.Helpers;
+using SecureApi.Application.Services;
 
 namespace SecureApi.API.Endpoints;
 
@@ -20,6 +19,16 @@ public static class AuthEndpoints
     {
         var group = app.MapGroup("/api/auth")
             .WithTags("Authentication");
+
+        // Register endpoint
+        group.MapPost("/register", HandleRegister)
+            .WithName("Register")
+            .WithSummary("Register a new user")
+            .WithDescription("Creates a new user account and returns access + refresh tokens")
+            .AddEndpointFilter<ValidationFilter<RegisterRequest>>()
+            .Produces<TokenResponse>(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status400BadRequest)
+            .Produces(StatusCodes.Status409Conflict);
 
         // Login endpoint
         group.MapPost("/login", HandleLogin)
@@ -53,47 +62,105 @@ public static class AuthEndpoints
     }
 
     /// <summary>
+    /// Handles user registration.
+    /// Delegates business logic to AuthService, returns appropriate HTTP responses.
+    /// </summary>
+    private static async Task<IResult> HandleRegister(
+        RegisterRequest request,
+        IAuthService authService,
+        HttpContext httpContext)
+    {
+        try
+        {
+            var tokenResponse = await authService.RegisterAsync(
+                request,
+                HttpContextHelper.GetClientIp(httpContext)
+            );
+
+            return Results.Created("/api/auth/register", tokenResponse);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.Conflict(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { error = "Registration failed", details = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Handles user login.
+    /// Delegates business logic to AuthService, returns appropriate HTTP responses.
     /// </summary>
     private static async Task<IResult> HandleLogin(
         LoginRequest request,
-        ApplicationDbContext db)
+        IAuthService authService,
+        HttpContext httpContext)
     {
-        // Validation is already done by ValidationFilter!
-        // This is just a placeholder implementation
+        try
+        {
+            var tokenResponse = await authService.LoginAsync(
+                request,
+                HttpContextHelper.GetClientIp(httpContext)
+            );
 
-        return Results.Ok(new TokenResponse(
-            AccessToken: "temp_access_token",
-            RefreshToken: "temp_refresh_token",
-            ExpiresIn: 900
-        ));
+            return Results.Ok(tokenResponse);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Results.Unauthorized();
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { error = "Login failed", details = ex.Message });
+        }
     }
 
     /// <summary>
     /// Handles token refresh.
+    /// Delegates business logic to AuthService, returns appropriate HTTP responses.
     /// </summary>
     private static async Task<IResult> HandleRefresh(
         RefreshRequest request,
-        ApplicationDbContext db)
+        IAuthService authService,
+        HttpContext httpContext)
     {
-        // Validation is already done by ValidationFilter!
+        try
+        {
+            var tokenResponse = await authService.RefreshTokenAsync(
+                request,
+                HttpContextHelper.GetClientIp(httpContext)
+            );
 
-        return Results.Ok(new TokenResponse(
-            AccessToken: "new_access_token",
-            RefreshToken: "new_refresh_token",
-            ExpiresIn: 900
-        ));
+            return Results.Ok(tokenResponse);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Results.Unauthorized();
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { error = "Token refresh failed", details = ex.Message });
+        }
     }
 
     /// <summary>
     /// Handles user logout.
+    /// Delegates business logic to AuthService, returns appropriate HTTP responses.
     /// </summary>
     private static async Task<IResult> HandleLogout(
         LogoutRequest request,
-        ApplicationDbContext db)
+        IAuthService authService)
     {
-        // Validation is already done by ValidationFilter!
-
-        return Results.Ok(new { message = "Logged out successfully" });
+        try
+        {
+            await authService.LogoutAsync(request);
+            return Results.Ok(new { message = "Logged out successfully" });
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { error = "Logout failed", details = ex.Message });
+        }
     }
 }

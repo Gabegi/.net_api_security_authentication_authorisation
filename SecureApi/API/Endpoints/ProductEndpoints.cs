@@ -1,6 +1,7 @@
 namespace SecureApi.API.Endpoints;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 using SecureApi.Infrastructure.Persistence;
 using SecureApi.Infrastructure.Persistence.Models;
 
@@ -49,7 +50,8 @@ public static class ProductEndpoints
             return Results.Created($"/api/products/{product.Id}", product);
         })
             .WithName("CreateProduct")
-            .WithSummary("Create a new product");
+            .WithSummary("Create a new product")
+            .RequireAuthorization();
 
         // PUT /api/products/{id}
         group.MapPut("/{id}", async (int id, UpdateProductRequest request, ApplicationDbContext db) =>
