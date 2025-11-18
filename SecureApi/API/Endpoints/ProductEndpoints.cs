@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
 using SecureApi.Infrastructure.Persistence;
 using SecureApi.Infrastructure.Persistence.Models;
+using SecureApi.Application.DTOs.Requests;
 
 /// <summary>
 /// Product API endpoints - manages product CRUD operations
@@ -89,25 +90,3 @@ public static class ProductEndpoints
             .RequireAuthorization();
     }
 }
-
-/// <summary>
-/// Request model for creating a new product
-/// </summary>
-public record CreateProductRequest(
-    string Name,
-    string? Description,
-    decimal Price,
-    string? Category,
-    int StockQuantity
-);
-
-/// <summary>
-/// Request model for updating a product
-/// </summary>
-public record UpdateProductRequest(
-    string? Name,
-    string? Description,
-    decimal? Price,
-    string? Category,
-    int? StockQuantity
-);
