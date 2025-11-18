@@ -23,7 +23,8 @@ public static class ProductEndpoints
         group.MapGet("/", async (ApplicationDbContext db) =>
             Results.Ok(await db.Products.ToListAsync()))
             .WithName("GetAllProducts")
-            .WithSummary("Get all products");
+            .WithSummary("Get all products")
+            .RequireAuthorization();
 
         // GET /api/products/{id}
         group.MapGet("/{id}", async (int id, ApplicationDbContext db) =>
@@ -32,7 +33,8 @@ public static class ProductEndpoints
             return product is null ? Results.NotFound() : Results.Ok(product);
         })
             .WithName("GetProductById")
-            .WithSummary("Get product by ID");
+            .WithSummary("Get product by ID")
+            .RequireAuthorization();
 
         // POST /api/products
         group.MapPost("/", async (CreateProductRequest request, ApplicationDbContext db) =>
