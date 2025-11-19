@@ -39,4 +39,10 @@ public class Product
     /// Gets or sets the date and time when the product was created.
     /// </summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// Gets or sets the user ID of the user who created this product.
+    /// Null for products created before this field was added (seeded products).
+    /// </summary>
+    public int? CreatedByUserId { get; set; }
 }

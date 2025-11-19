@@ -1,0 +1,123 @@
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using SecureApi.Infrastructure.Persistence;
+using SecureApi.Tests.Helpers;
+
+namespace SecureApi.Tests.Fixtures;
+
+/// <summary>
+/// Custom WebApplicationFactory that configures the test server
+/// with in-memory SQLite database.
+/// Keeps the database connection open for the lifetime of the factory.
+/// Overrides JWT configuration to use test-specific secrets.
+/// </summary>
+public class ApiWebApplicationFactory : WebApplicationFactory<Program>
+{
+    private SqliteConnection? _connection;
+
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        // Set environment to Testing to disable rate limiting
+        builder.UseEnvironment("Testing");
+
+        // Override JWT configuration to match TokenHelper - these MUST be identical
+        builder.UseSetting("Jwt:SecretKey", "your-super-secret-key-min-32-characters-long!");
+        builder.UseSetting("Jwt:Issuer", "https://localhost:7001");
+        builder.UseSetting("Jwt:Audience", "https://localhost:7001");
+
+        builder.ConfigureServices(services =>
+        {
+            // Remove the real DbContext registration
+            var dbDescriptor = services.SingleOrDefault(d =>
+                d.ServiceType == typeof(DbContextOptions<ApplicationDbContext>));
+
+            if (dbDescriptor != null)
+            {
+                services.Remove(dbDescriptor);
+            }
+
+            // Create and open a connection to SQLite in-memory database
+            // This connection must stay open for the database to persist
+            _connection = new SqliteConnection("DataSource=:memory:");
+            _connection.Open();
+
+            // Add DbContext with the persistent connection
+            services.AddDbContext<ApplicationDbContext>(options =>
+            {
+                options.UseSqlite(_connection);
+            });
+
+            // Note: Rate limiting middleware will still run but with default unlimited configuration
+            // since we don't re-register the policies, it effectively allows all requests
+
+            // Create the database schema
+            var sp = services.BuildServiceProvider();
+            using var scope = sp.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            db.Database.EnsureCreated();
+        });
+    }
+
+    /// <summary>
+    /// Helper to execute database operations in a scope.
+    /// Automatically handles scope disposal.
+    /// </summary>
+    public void ExecuteDbContext(Action<ApplicationDbContext> action)
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        action(db);
+    }
+
+    /// <summary>
+    /// Helper to execute database operations with a return value.
+    /// Automatically handles scope disposal.
+    /// </summary>
+    public T ExecuteDbContext<T>(Func<ApplicationDbContext, T> func)
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        return func(db);
+    }
+
+    /// <summary>
+    /// Helper to execute database operations and automatically save changes.
+    /// Use this when you need to add/modify data and persist it to the database.
+    /// Automatically handles scope disposal.
+    /// </summary>
+    public void ExecuteDbContextWithSave(Action<ApplicationDbContext> action)
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        action(db);
+        db.SaveChanges();
+    }
+
+    /// <summary>
+    /// Helper to execute database operations with a return value and automatically save changes.
+    /// Use this when you need to add/modify data and persist it to the database.
+    /// Automatically handles scope disposal.
+    /// </summary>
+    public T ExecuteDbContextWithSave<T>(Func<ApplicationDbContext, T> func)
+    {
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var result = func(db);
+        db.SaveChanges();
+        return result;
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            _connection?.Close();
+            _connection?.Dispose();
+        }
+        base.Dispose(disposing);
+    }
+}

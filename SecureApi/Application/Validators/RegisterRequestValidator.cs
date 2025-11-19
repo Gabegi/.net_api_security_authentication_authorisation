@@ -35,6 +35,7 @@ public class RegisterRequestValidator : AbstractValidator<RegisterRequest>
         RuleFor(x => x.BirthDate)
             .NotEmpty().WithMessage("Birth date is required")
             .LessThan(DateTime.Today).WithMessage("Birth date must be in the past")
-            .GreaterThan(DateTime.Today.AddYears(-120)).WithMessage("Birth date cannot be more than 120 years ago");
+            .GreaterThan(DateTime.Today.AddYears(-120)).WithMessage("Birth date cannot be more than 120 years ago")
+            .LessThanOrEqualTo(DateTime.Today.AddYears(-18)).WithMessage("You must be at least 18 years old to register");
     }
 }

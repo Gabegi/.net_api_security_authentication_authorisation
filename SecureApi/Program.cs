@@ -1,4 +1,5 @@
 using FluentValidation;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SecureApi.Infrastructure.Persistence;
@@ -7,6 +8,7 @@ using SecureApi.API.Extensions;
 using SecureApi.API.Middleware;
 using SecureApi.Infrastructure.Persistence.Models;
 using SecureApi.Application.Services;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -59,7 +61,11 @@ builder.Services
 builder.Services.AddAuthorizationPolicies();
 
 // Rate Limiting (protects against brute force attacks)
-builder.Services.AddRateLimitingPolicies();
+// Skip in test environment since endpoints still have RequireRateLimiting() filters
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddRateLimitingPolicies();
+}
 
 // ───────────────────────────────────────────────────────────────
 // HTTPS CONFIGURATION
@@ -167,7 +173,11 @@ if (app.Environment.IsDevelopment())
 
 // 6. Rate Limiting (must be before Authentication)
 // Prevents brute force attacks on auth endpoints
-app.UseRateLimiter();
+// Skip in test environment to allow test execution
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    app.UseRateLimiter();
+}
 
 // 8. Authentication (verify JWT tokens)
 app.UseAuthentication();
@@ -183,3 +193,6 @@ app.MapAuthEndpoints();
 app.MapProductEndpoints();
 
 app.Run();
+
+// Make Program accessible to test projects
+public partial class Program { }
