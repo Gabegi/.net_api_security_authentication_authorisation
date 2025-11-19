@@ -20,14 +20,14 @@ public static class ProductEndpoints
             .WithTags("Products")
             .WithOpenApi();
 
-        // GET /api/products
+        // GET /api/products - Public endpoint
         group.MapGet("/", async (ApplicationDbContext db) =>
             Results.Ok(await db.Products.ToListAsync()))
             .WithName("GetAllProducts")
             .WithSummary("Get all products")
-            .RequireAuthorization();
+            .AllowAnonymous();
 
-        // GET /api/products/{id}
+        // GET /api/products/{id} - Public endpoint
         group.MapGet("/{id}", async (int id, ApplicationDbContext db) =>
         {
             var product = await db.Products.FindAsync(id);
@@ -35,9 +35,16 @@ public static class ProductEndpoints
         })
             .WithName("GetProductById")
             .WithSummary("Get product by ID")
-            .RequireAuthorization();
+            .AllowAnonymous();
 
-        // POST /api/products
+        // GET /api/products/adult - Age-restricted content (18+ only)
+        group.MapGet("/adult/list", async (ApplicationDbContext db) =>
+            Results.Ok(await db.Products.Where(p => p.Category == "Adult").ToListAsync()))
+            .WithName("GetAdultProducts")
+            .WithSummary("Get adult products (18+ only)")
+            .RequireAuthorization("MustBeOver18");
+
+        // POST /api/products - Requires User role
         group.MapPost("/", async (CreateProductRequest request, ApplicationDbContext db) =>
         {
             var product = new Product
@@ -54,9 +61,9 @@ public static class ProductEndpoints
         })
             .WithName("CreateProduct")
             .WithSummary("Create a new product")
-            .RequireAuthorization();
+            .RequireAuthorization("UserOnly");
 
-        // PUT /api/products/{id}
+        // PUT /api/products/{id} - Requires User role
         group.MapPut("/{id}", async (int id, UpdateProductRequest request, ApplicationDbContext db) =>
         {
             var product = await db.Products.FindAsync(id);
@@ -73,9 +80,9 @@ public static class ProductEndpoints
         })
             .WithName("UpdateProduct")
             .WithSummary("Update a product")
-            .RequireAuthorization();
+            .RequireAuthorization("UserOnly");
 
-        // DELETE /api/products/{id}
+        // DELETE /api/products/{id} - Requires Admin role
         group.MapDelete("/{id}", async (int id, ApplicationDbContext db) =>
         {
             var product = await db.Products.FindAsync(id);
@@ -87,6 +94,6 @@ public static class ProductEndpoints
         })
             .WithName("DeleteProduct")
             .WithSummary("Delete a product")
-            .RequireAuthorization();
+            .RequireAuthorization("AdminOnly");
     }
 }

@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using SecureApi.Application.Services;
 using SecureApi.Infrastructure.Persistence;
 using SecureApi.Infrastructure.Persistence.Models;
