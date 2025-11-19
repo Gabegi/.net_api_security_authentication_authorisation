@@ -68,3 +68,4 @@ nunit-*.xml
 *.v2
 /.vs/APISecurity.NET
 /.vs/APISecurity.NET
+/SecureApi/.vs/SecureApi/v17
