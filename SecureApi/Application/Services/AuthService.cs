@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SecureApi.Application.DTOs.Requests;
 using SecureApi.Application.DTOs.Responses;
+using SecureApi.Application.Exceptions;
 using SecureApi.Infrastructure.Persistence;
 using SecureApi.Infrastructure.Persistence.Models;
 
@@ -41,7 +42,7 @@ public class AuthService : IAuthService
 
         if (existingUser != null)
         {
-            throw new InvalidOperationException($"User with email '{request.Email}' already exists");
+            throw new DuplicateResourceException($"User with email '{request.Email}' already exists");
         }
 
         // Hash password using BCrypt with work factor 12

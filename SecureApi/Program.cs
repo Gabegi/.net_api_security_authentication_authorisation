@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using SecureApi.Infrastructure.Persistence;
 using SecureApi.API.Endpoints;
 using SecureApi.API.Extensions;
+using SecureApi.API.Middleware;
 using SecureApi.Infrastructure.Persistence.Models;
 using SecureApi.Application.Services;
 
@@ -141,8 +142,8 @@ await app.SeedInitialAdminAsync();
 // MIDDLEWARE PIPELINE (Order matters!)
 // ───────────────────────────────────────────────────────────────
 
-// 1. Exception handling (first - catch all errors)
-app.UseExceptionHandler("/error");
+// 1. Global exception handling (first - catch all errors)
+app.UseGlobalExceptionHandler();
 
 // 2. HSTS (only in production, not on localhost)
 // Strict-Transport-Security: forces HTTPS for 1 year

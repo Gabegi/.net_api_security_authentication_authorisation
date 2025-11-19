@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using SecureApi.Infrastructure.Persistence;
 using SecureApi.Infrastructure.Persistence.Models;
 using SecureApi.Application.DTOs.Requests;
+using SecureApi.Application.Exceptions;
 using SecureApi.API.Filters;
 
 /// <summary>
@@ -32,7 +33,9 @@ public static class ProductEndpoints
         group.MapGet("/{id}", async (int id, ApplicationDbContext db) =>
         {
             var product = await db.Products.FindAsync(id);
-            return product is null ? Results.NotFound() : Results.Ok(product);
+            if (product is null)
+                throw new ResourceNotFoundException("Product", id);
+            return Results.Ok(product);
         })
             .WithName("GetProductById")
             .WithSummary("Get product by ID")
@@ -69,7 +72,8 @@ public static class ProductEndpoints
         group.MapPut("/{id}", async (int id, UpdateProductRequest request, ApplicationDbContext db) =>
         {
             var product = await db.Products.FindAsync(id);
-            if (product is null) return Results.NotFound();
+            if (product is null)
+                throw new ResourceNotFoundException("Product", id);
 
             // Update only provided fields (null-coalescing pattern)
             product.Name = request.Name ?? product.Name;
@@ -90,7 +94,8 @@ public static class ProductEndpoints
         group.MapDelete("/{id}", async (int id, ApplicationDbContext db) =>
         {
             var product = await db.Products.FindAsync(id);
-            if (product is null) return Results.NotFound();
+            if (product is null)
+                throw new ResourceNotFoundException("Product", id);
 
             db.Products.Remove(product);
             await db.SaveChangesAsync();
