@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using SecureApi.Infrastructure.Persistence;
 using SecureApi.API.Endpoints;
+using SecureApi.API.Extensions;
 using SecureApi.Infrastructure.Persistence.Models;
 using SecureApi.Application.Services;
 
@@ -53,8 +54,8 @@ builder.Services
         };
     });
 
-// Authorization
-builder.Services.AddAuthorization();
+// Authorization with Policies
+builder.Services.AddAuthorizationPolicies();
 
 // ───────────────────────────────────────────────────────────────
 // HTTPS CONFIGURATION
