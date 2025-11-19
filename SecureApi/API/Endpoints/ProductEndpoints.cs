@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using SecureApi.Infrastructure.Persistence;
 using SecureApi.Infrastructure.Persistence.Models;
 using SecureApi.Application.DTOs.Requests;
+using SecureApi.API.Filters;
 
 /// <summary>
 /// Product API endpoints - manages product CRUD operations
@@ -59,6 +60,7 @@ public static class ProductEndpoints
             await db.SaveChangesAsync();
             return Results.Created($"/api/products/{product.Id}", product);
         })
+            .AddEndpointFilter<ValidationFilter<CreateProductRequest>>()
             .WithName("CreateProduct")
             .WithSummary("Create a new product")
             .RequireAuthorization("UserOnly");
@@ -69,15 +71,17 @@ public static class ProductEndpoints
             var product = await db.Products.FindAsync(id);
             if (product is null) return Results.NotFound();
 
-            if (!string.IsNullOrWhiteSpace(request.Name)) product.Name = request.Name;
-            if (!string.IsNullOrWhiteSpace(request.Description)) product.Description = request.Description;
-            if (request.Price.HasValue) product.Price = request.Price.Value;
-            if (!string.IsNullOrWhiteSpace(request.Category)) product.Category = request.Category;
-            if (request.StockQuantity.HasValue) product.StockQuantity = request.StockQuantity.Value;
+            // Update only provided fields (null-coalescing pattern)
+            product.Name = request.Name ?? product.Name;
+            product.Description = request.Description ?? product.Description;
+            product.Price = request.Price ?? product.Price;
+            product.Category = request.Category ?? product.Category;
+            product.StockQuantity = request.StockQuantity ?? product.StockQuantity;
 
             await db.SaveChangesAsync();
             return Results.Ok(product);
         })
+            .AddEndpointFilter<ValidationFilter<UpdateProductRequest>>()
             .WithName("UpdateProduct")
             .WithSummary("Update a product")
             .RequireAuthorization("UserOnly");
