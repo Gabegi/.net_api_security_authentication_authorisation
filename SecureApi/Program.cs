@@ -131,6 +131,9 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+// Seed initial admin user
+await app.SeedInitialAdminAsync();
+
 // ───────────────────────────────────────────────────────────────
 // MIDDLEWARE PIPELINE (Order matters!)
 // ───────────────────────────────────────────────────────────────
