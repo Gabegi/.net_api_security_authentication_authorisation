@@ -57,6 +57,9 @@ builder.Services
 // Authorization with Policies
 builder.Services.AddAuthorizationPolicies();
 
+// Rate Limiting (protects against brute force attacks)
+builder.Services.AddRateLimitingPolicies();
+
 // ───────────────────────────────────────────────────────────────
 // HTTPS CONFIGURATION
 // ───────────────────────────────────────────────────────────────
@@ -161,10 +164,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// 6. Authentication (verify JWT tokens)
+// 6. Rate Limiting (must be before Authentication)
+// Prevents brute force attacks on auth endpoints
+app.UseRateLimiter();
+
+// 8. Authentication (verify JWT tokens)
 app.UseAuthentication();
 
-// 7. Authorization (check permissions)
+// 9. Authorization (check permissions)
 app.UseAuthorization();
 
 // ───────────────────────────────────────────────────────────────
