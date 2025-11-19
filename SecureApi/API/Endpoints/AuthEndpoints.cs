@@ -26,7 +26,6 @@ public static class AuthEndpoints
             .WithSummary("Register a new user")
             .WithDescription("Creates a new user account and returns access + refresh tokens")
             .AddEndpointFilter<ValidationFilter<RegisterRequest>>()
-            .RequireRateLimiting("auth")
             .Produces<TokenResponse>(StatusCodes.Status201Created)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status409Conflict);
@@ -37,7 +36,6 @@ public static class AuthEndpoints
             .WithSummary("Login with email and password")
             .WithDescription("Authenticates a user and returns access + refresh tokens")
             .AddEndpointFilter<ValidationFilter<LoginRequest>>()
-            .RequireRateLimiting("auth")
             .Produces<TokenResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status401Unauthorized);

@@ -25,9 +25,20 @@ public class ApiWebApplicationFactory : WebApplicationFactory<Program>
         builder.UseEnvironment("Testing");
 
         // Override JWT configuration to match TokenHelper - these MUST be identical
-        builder.UseSetting("Jwt:SecretKey", "your-super-secret-key-min-32-characters-long!");
-        builder.UseSetting("Jwt:Issuer", "https://localhost:7001");
-        builder.UseSetting("Jwt:Audience", "https://localhost:7001");
+        // IMPORTANT: Use ConfigureAppConfiguration instead of UseSetting because UseSetting
+        // only affects WebHost settings, not the IConfiguration that TokenService reads at startup.
+        // ConfigureAppConfiguration properly injects test config before the app starts.
+        builder.ConfigureAppConfiguration((context, config) =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string>
+            {
+                ["Jwt:SecretKey"] = "your-super-secret-key-min-32-characters-long!",
+                ["Jwt:Issuer"] = "https://localhost:7001",
+                ["Jwt:Audience"] = "https://localhost:7001",
+                ["Jwt:AccessTokenExpiryMinutes"] = "15",
+                ["Jwt:RefreshTokenExpiryDays"] = "7"
+            }!);
+        });
 
         builder.ConfigureServices(services =>
         {
