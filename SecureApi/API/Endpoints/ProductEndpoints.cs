@@ -1,13 +1,12 @@
-namespace SecureApi.API.Endpoints;
 
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authorization;
 using SecureApi.Infrastructure.Persistence;
 using SecureApi.Infrastructure.Persistence.Models;
 using SecureApi.Application.DTOs.Requests;
 using SecureApi.Application.Exceptions;
 using SecureApi.API.Filters;
 
+namespace SecureApi.API.Endpoints;
 /// <summary>
 /// Product API endpoints - manages product CRUD operations
 /// </summary>
