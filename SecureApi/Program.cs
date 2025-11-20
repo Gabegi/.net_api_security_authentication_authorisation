@@ -36,9 +36,16 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAuthResultHandler, AuthResultHandler>();
 
 // Authentication
-var jwtSettings = builder.Configuration.GetSection("Jwt");
-var secretKey = jwtSettings["SecretKey"]
+// Try environment variables first (for testing), then fall back to configuration
+var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
+    ?? builder.Configuration.GetSection("Jwt")["SecretKey"]
     ?? throw new InvalidOperationException("JWT SecretKey not configured");
+
+var jwtSettings = builder.Configuration.GetSection("Jwt");
+var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
+    ?? jwtSettings["Issuer"];
+var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
+    ?? jwtSettings["Audience"];
 
 builder.Services
     .AddAuthentication("Bearer")
@@ -197,20 +204,22 @@ await app.SeedInitialAdminAsync();
 // 1. Global exception handling (first - catch all errors)
 app.UseGlobalExceptionHandler();
 
-// 2. HSTS (only in production, not on localhost)
+// 2. HTTPS redirection (HTTP → HTTPS) - MUST come before HSTS
+app.UseHttpsRedirection();
+
+// 3. HSTS (only in production, not on localhost)
 // Strict-Transport-Security: forces HTTPS for 1 year
+// MUST come after HTTPS redirection to only be sent on HTTPS responses
 if (!app.Environment.IsDevelopment())
 {
     app.UseHsts();
 }
 
-// 4. HTTPS redirection (HTTP → HTTPS)
-app.UseHttpsRedirection();
-
-// 5. CORS middleware (must be before UseAuthentication and UseAuthorization)
+// 4. CORS middleware (must be before UseAuthentication and UseAuthorization)
 // Allows browser-based frontends to make requests to this API
 app.UseCors();
 
+// 5. Swagger (development only)
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -225,10 +234,10 @@ if (!app.Environment.IsEnvironment("Testing"))
     app.UseRateLimiter();
 }
 
-// 8. Authentication (verify JWT tokens)
+// 7. Authentication (verify JWT tokens)
 app.UseAuthentication();
 
-// 9. Authorization (check permissions)
+// 8. Authorization (check permissions)
 app.UseAuthorization();
 
 // ───────────────────────────────────────────────────────────────
