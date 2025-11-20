@@ -1,14 +1,18 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text;
 using System.Text.Encodings.Web;
 
 namespace SecureApi.Tests.Infrastructure;
 
 /// <summary>
-/// Test authentication handler that bypasses JWT validation for integration tests.
-/// Uses simple token format: "TestToken-Admin" or "TestToken-User"
+/// Test authentication handler that accepts both simple test tokens and JWT tokens.
+/// Simple token format: "TestToken-Admin" or "TestToken-User"
+/// JWT tokens are validated using the test secret key.
 /// </summary>
 public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
@@ -30,10 +34,28 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
         }
 
         var authHeader = Request.Headers["Authorization"].ToString();
+        if (!authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.FromResult(AuthenticateResult.NoResult());
+        }
 
-        // Extract role from header (format: "Bearer TestToken-Admin" or "Bearer TestToken-User")
+        var token = authHeader.Substring("Bearer ".Length).Trim();
+
+        // Try to handle simple test tokens first
+        if (token.StartsWith("TestToken-"))
+        {
+            return Task.FromResult(HandleSimpleTestToken(token));
+        }
+
+        // Try to validate as JWT
+        return Task.FromResult(TryValidateJwt(token));
+    }
+
+    private AuthenticateResult HandleSimpleTestToken(string token)
+    {
+        // Extract role from token (format: "TestToken-Admin" or "TestToken-User")
         string role = "User"; // default
-        if (authHeader.Contains("TestToken-Admin"))
+        if (token.Contains("Admin"))
         {
             role = "Admin";
         }
@@ -50,6 +72,56 @@ public class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions
         var principal = new ClaimsPrincipal(identity);
         var ticket = new AuthenticationTicket(principal, AuthenticationScheme);
 
-        return Task.FromResult(AuthenticateResult.Success(ticket));
+        return AuthenticateResult.Success(ticket);
+    }
+
+    private AuthenticateResult TryValidateJwt(string token)
+    {
+        try
+        {
+            var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY")
+                ?? "your-super-secret-key-min-32-characters-long!";
+            var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER")
+                ?? "https://localhost:7001";
+            var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")
+                ?? "https://localhost:7001";
+
+            Logger.LogInformation("JWT validation - Using issuer: {Issuer}, audience: {Audience}, secret length: {SecretLength}",
+                issuer, audience, secretKey.Length);
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var key = Encoding.UTF8.GetBytes(secretKey);
+
+            var validationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(key),
+                ValidateIssuer = true,
+                ValidIssuer = issuer,
+                ValidateAudience = true,
+                ValidAudience = audience,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromSeconds(5)
+            };
+
+            var principal = tokenHandler.ValidateToken(token, validationParameters, out SecurityToken validatedToken);
+
+            Logger.LogInformation("JWT validation successful for user: {User}, role: {Role}",
+                principal.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+                principal.FindFirst(ClaimTypes.Role)?.Value);
+
+            // Create a claims identity from the validated token
+            var identity = new ClaimsIdentity(principal.Claims, AuthenticationScheme);
+            var newPrincipal = new ClaimsPrincipal(identity);
+            var ticket = new AuthenticationTicket(newPrincipal, AuthenticationScheme);
+
+            return AuthenticateResult.Success(ticket);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning("JWT validation failed: {Message}, Exception: {ExceptionType}",
+                ex.Message, ex.GetType().Name);
+            return AuthenticateResult.Fail("Invalid token");
+        }
     }
 }
