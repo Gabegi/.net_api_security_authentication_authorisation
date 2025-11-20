@@ -61,10 +61,30 @@ builder.Services
 builder.Services.AddAuthorizationPolicies();
 
 // Rate Limiting (protects against brute force attacks)
-// Skip in test environment since endpoints still have RequireRateLimiting() filters
 if (!builder.Environment.IsEnvironment("Testing"))
 {
+    // Production: Use real rate limiting policies
     builder.Services.AddRateLimitingPolicies();
+}
+else
+{
+    // Testing: Use unlimited rate limiting to allow tests to run
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.AddFixedWindowLimiter("auth", opt =>
+        {
+            opt.PermitLimit = int.MaxValue;
+            opt.Window = TimeSpan.FromMinutes(1);
+            opt.AutoReplenishment = true;
+        });
+        options.AddFixedWindowLimiter("api", opt =>
+        {
+            opt.PermitLimit = int.MaxValue;
+            opt.Window = TimeSpan.FromMinutes(1);
+            opt.AutoReplenishment = true;
+        });
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    });
 }
 
 // ───────────────────────────────────────────────────────────────
