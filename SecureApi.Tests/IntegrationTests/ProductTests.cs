@@ -101,7 +101,7 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
         // Arrange - Register a user via API, then manually make them underage in DB
         var registerRequest = ApiWebApplicationFactory.CreateRegisterRequest();
         var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", registerRequest);
-        var tokenResponse = await registerResponse.Content.ReadAsAsync<TokenResponse>();
+        var tokenResponse = await registerResponse.Content.ReadFromJsonAsync<TokenResponse>();
 
         // Get the registered user's email and manually set their birth date to underage
         _factory.ExecuteDbContext(db =>
@@ -143,7 +143,7 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
             birthDate: DateTime.Today.AddYears(-25) // 25 years old
         );
         var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", registerRequest);
-        var tokenResponse = await registerResponse.Content.ReadAsAsync<TokenResponse>();
+        var tokenResponse = await registerResponse.Content.ReadFromJsonAsync<TokenResponse>();
         _client.DefaultRequestHeaders.Authorization = new("Bearer", tokenResponse!.AccessToken);
 
         // Seed adult and regular products
@@ -207,7 +207,7 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
         // Arrange - Register and login via API
         var registerRequest = ApiWebApplicationFactory.CreateRegisterRequest();
         var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", registerRequest);
-        var tokenResponse = await registerResponse.Content.ReadAsAsync<TokenResponse>();
+        var tokenResponse = await registerResponse.Content.ReadFromJsonAsync<TokenResponse>();
         _client.DefaultRequestHeaders.Authorization = new("Bearer", tokenResponse!.AccessToken);
 
         var productRequest = new CreateProductRequest(
@@ -233,7 +233,7 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
         // Arrange - Register via API, then manually set role to Admin
         var registerRequest = ApiWebApplicationFactory.CreateRegisterRequest();
         var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", registerRequest);
-        var tokenResponse = await registerResponse.Content.ReadAsAsync<TokenResponse>();
+        var tokenResponse = await registerResponse.Content.ReadFromJsonAsync<TokenResponse>();
 
         // Upgrade user to Admin role
         _factory.ExecuteDbContext(db =>
@@ -478,7 +478,7 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
         // Arrange - Register and promote to Admin
         var registerRequest = ApiWebApplicationFactory.CreateRegisterRequest();
         var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", registerRequest);
-        var tokenResponse = await registerResponse.Content.ReadAsAsync<TokenResponse>();
+        var tokenResponse = await registerResponse.Content.ReadFromJsonAsync<TokenResponse>();
 
         _factory.ExecuteDbContext(db =>
         {

@@ -181,7 +181,7 @@ public class ApiWebApplicationFactory : WebApplicationFactory<Program>
         var registerRequest = CreateRegisterRequest(email, password, fullName, birthDate);
         var response = await client.PostAsJsonAsync("/api/auth/register", registerRequest);
         response.EnsureSuccessStatusCode();
-        var tokenResponse = (await response.Content.ReadAsAsync<TokenResponse>())!;
+        var tokenResponse = (await response.Content.ReadFromJsonAsync<TokenResponse>())!;
 
         // If role override requested, update in database
         if (roleOverride != null)
