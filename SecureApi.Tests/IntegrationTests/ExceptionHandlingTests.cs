@@ -4,7 +4,6 @@ using FluentAssertions;
 using SecureApi.Application.DTOs.Requests;
 using SecureApi.Application.DTOs.Responses;
 using SecureApi.Tests.Fixtures;
-using SecureApi.Tests.Helpers;
 using Xunit;
 
 namespace SecureApi.Tests.IntegrationTests;

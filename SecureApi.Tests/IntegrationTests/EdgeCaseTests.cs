@@ -3,7 +3,6 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using SecureApi.Application.DTOs.Requests;
 using SecureApi.Tests.Fixtures;
-using SecureApi.Tests.Helpers;
 using Xunit;
 
 namespace SecureApi.Tests.IntegrationTests;
