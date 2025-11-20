@@ -2,9 +2,9 @@ using System.Net;
 using System.Net.Http.Json;
 using FluentAssertions;
 using SecureApi.Application.DTOs.Requests;
+using SecureApi.Application.DTOs.Responses;
 using SecureApi.Infrastructure.Persistence.Models;
 using SecureApi.Tests.Fixtures;
-using SecureApi.Tests.Helpers;
 using Xunit;
 
 namespace SecureApi.Tests.IntegrationTests;
@@ -98,21 +98,32 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
     [Fact]
     public async Task GetAdultProducts_AsUnderageUser_ReturnsForbidden()
     {
-        // Arrange
-        var underageUser = _factory.ExecuteDbContext(db =>
-        {
-            var user = TestDataGenerator.CreateUnderageUser();
-            db.Users.Add(user);
-            db.SaveChanges();
-            return user;
-        });
+        // Arrange - Register a user via API, then manually make them underage in DB
+        var registerRequest = ApiWebApplicationFactory.CreateRegisterRequest();
+        var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", registerRequest);
+        var tokenResponse = await registerResponse.Content.ReadAsAsync<TokenResponse>();
 
-        var token = TokenHelper.GenerateToken(underageUser);
-        _client.DefaultRequestHeaders.Authorization = new("Bearer", token);
-
+        // Get the registered user's email and manually set their birth date to underage
         _factory.ExecuteDbContext(db =>
         {
-            var adultProduct = TestDataGenerator.CreateAdultProduct();
+            var user = db.Users.First(u => u.Email == registerRequest.Email);
+            user.BirthDate = DateTime.Today.AddYears(-17); // Make them 17 years old
+            db.SaveChanges();
+        });
+
+        _client.DefaultRequestHeaders.Authorization = new("Bearer", tokenResponse!.AccessToken);
+
+        // Seed an adult product
+        _factory.ExecuteDbContext(db =>
+        {
+            var adultProduct = new Product
+            {
+                Name = "Adult Item",
+                Description = "For 18+ only",
+                Price = 99.99m,
+                Category = "Adult",
+                StockQuantity = 10
+            };
             db.Products.Add(adultProduct);
             db.SaveChanges();
         });
@@ -127,23 +138,39 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
     [Fact]
     public async Task GetAdultProducts_AsAdultUser_ReturnsOk()
     {
-        // Arrange
-        var adultUser = _factory.ExecuteDbContext(db =>
-        {
-            var user = TestDataGenerator.CreateAdultUser();
-            db.Users.Add(user);
-            db.SaveChanges();
-            return user;
-        });
+        // Arrange - Register an adult user via API
+        var registerRequest = ApiWebApplicationFactory.CreateRegisterRequest(
+            birthDate: DateTime.Today.AddYears(-25) // 25 years old
+        );
+        var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", registerRequest);
+        var tokenResponse = await registerResponse.Content.ReadAsAsync<TokenResponse>();
+        _client.DefaultRequestHeaders.Authorization = new("Bearer", tokenResponse!.AccessToken);
 
-        var token = TokenHelper.GenerateToken(adultUser);
-        _client.DefaultRequestHeaders.Authorization = new("Bearer", token);
-
+        // Seed adult and regular products
         _factory.ExecuteDbContext(db =>
         {
-            TestDataGenerator.SeedProducts(db, 2);
-            var adultProduct = TestDataGenerator.CreateAdultProduct();
-            db.Products.Add(adultProduct);
+            // Add 2 regular products
+            for (int i = 0; i < 2; i++)
+            {
+                db.Products.Add(new Product
+                {
+                    Name = $"Regular Product {i}",
+                    Description = "Regular item",
+                    Price = 9.99m,
+                    Category = "Electronics",
+                    StockQuantity = 5
+                });
+            }
+
+            // Add 1 adult product
+            db.Products.Add(new Product
+            {
+                Name = "Adult Item",
+                Description = "For 18+ only",
+                Price = 19.99m,
+                Category = "Adult",
+                StockQuantity = 3
+            });
             db.SaveChanges();
         });
 
@@ -177,40 +204,57 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
     [Fact]
     public async Task CreateProduct_AsUser_ReturnsCreated()
     {
-        // Arrange
-        var user = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedUser(db)
+        // Arrange - Register and login via API
+        var registerRequest = ApiWebApplicationFactory.CreateRegisterRequest();
+        var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", registerRequest);
+        var tokenResponse = await registerResponse.Content.ReadAsAsync<TokenResponse>();
+        _client.DefaultRequestHeaders.Authorization = new("Bearer", tokenResponse!.AccessToken);
+
+        var productRequest = new CreateProductRequest(
+            Name: "Test Product",
+            Description: "A test product",
+            Price: 29.99m,
+            Category: "Electronics",
+            StockQuantity: 10
         );
 
-        var token = TokenHelper.GenerateToken(user);
-        _client.DefaultRequestHeaders.Authorization = new("Bearer", token);
-
-        var request = TestDataGenerator.CreateValidProductRequest();
-
         // Act
-        var response = await _client.PostAsJsonAsync("/api/products", request);
+        var response = await _client.PostAsJsonAsync("/api/products", productRequest);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         var product = await response.Content.ReadFromJsonAsync<Product>();
-        product!.Name.Should().Be(request.Name);
+        product!.Name.Should().Be(productRequest.Name);
     }
 
     [Fact]
     public async Task CreateProduct_AsAdmin_ReturnsCreated()
     {
-        // Arrange
-        var admin = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedAdminUser(db)
+        // Arrange - Register via API, then manually set role to Admin
+        var registerRequest = ApiWebApplicationFactory.CreateRegisterRequest();
+        var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", registerRequest);
+        var tokenResponse = await registerResponse.Content.ReadAsAsync<TokenResponse>();
+
+        // Upgrade user to Admin role
+        _factory.ExecuteDbContext(db =>
+        {
+            var user = db.Users.First(u => u.Email == registerRequest.Email);
+            user.Role = "Admin";
+            db.SaveChanges();
+        });
+
+        _client.DefaultRequestHeaders.Authorization = new("Bearer", tokenResponse!.AccessToken);
+
+        var productRequest = new CreateProductRequest(
+            Name: "Admin Product",
+            Description: "Created by admin",
+            Price: 49.99m,
+            Category: "Premium",
+            StockQuantity: 5
         );
 
-        var token = TokenHelper.GenerateToken(admin);
-        _client.DefaultRequestHeaders.Authorization = new("Bearer", token);
-
-        var request = TestDataGenerator.CreateValidProductRequest();
-
         // Act
-        var response = await _client.PostAsJsonAsync("/api/products", request);
+        var response = await _client.PostAsJsonAsync("/api/products", productRequest);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -219,13 +263,8 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
     [Fact]
     public async Task CreateProduct_WithInvalidData_ReturnsBadRequest()
     {
-        // Arrange
-        var user = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedUser(db)
-        );
-
-        var token = TokenHelper.GenerateToken(user);
-        _client.DefaultRequestHeaders.Authorization = new("Bearer", token);
+        // Arrange - Register and authorize
+        await _factory.RegisterAndAuthorizeAsync(_client);
 
         var invalidRequest = new CreateProductRequest(
             "", // Invalid: empty name
@@ -245,26 +284,24 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
     [Fact]
     public async Task CreateProduct_SavesUserIdAsCreator()
     {
-        // Arrange
-        var user = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedUser(db)
+        // Arrange - Register and authorize
+        await _factory.RegisterAndAuthorizeAsync(_client);
+
+        var productRequest = new CreateProductRequest(
+            Name: "Creator Test Product",
+            Description: "Testing creator tracking",
+            Price: 25.00m,
+            Category: "Test",
+            StockQuantity: 1
         );
-
-        var token = TokenHelper.GenerateToken(user);
-        _client.DefaultRequestHeaders.Authorization = new("Bearer", token);
-
-        var request = TestDataGenerator.CreateValidProductRequest();
 
         // Act
-        var response = await _client.PostAsJsonAsync("/api/products", request);
+        var response = await _client.PostAsJsonAsync("/api/products", productRequest);
         var product = await response.Content.ReadFromJsonAsync<Product>();
 
-        // Assert - Verify CreatedByUserId is set
-        var savedProduct = _factory.ExecuteDbContext(db =>
-            db.Products.FirstOrDefault(p => p.Id == product!.Id)
-        );
-        // Note: CreatedByUserId might not be set if endpoint doesn't populate it
-        // This test documents current behavior
+        // Assert - Verify product was created
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        product!.Name.Should().Be(productRequest.Name);
     }
 
     #endregion
@@ -291,22 +328,35 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
     [Fact]
     public async Task UpdateProduct_AsUser_ReturnsOk()
     {
-        // Arrange
-        var user = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedUser(db)
+        // Arrange - Register and authorize
+        await _factory.RegisterAndAuthorizeAsync(_client);
+
+        // Seed a product
+        var productId = _factory.ExecuteDbContext(db =>
+        {
+            var product = new Product
+            {
+                Name = "Original Product",
+                Description = "Will be updated",
+                Price = 19.99m,
+                Category = "Electronics",
+                StockQuantity = 10
+            };
+            db.Products.Add(product);
+            db.SaveChanges();
+            return product.Id;
+        });
+
+        var updateRequest = new UpdateProductRequest(
+            Name: "Updated Product",
+            Description: null,
+            Price: null,
+            Category: null,
+            StockQuantity: null
         );
-
-        var product = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedProduct(db, createdByUserId: user.Id)
-        );
-
-        var token = TokenHelper.GenerateToken(user);
-        _client.DefaultRequestHeaders.Authorization = new("Bearer", token);
-
-        var request = TestDataGenerator.CreateUpdateProductRequest(name: "Updated Product");
 
         // Act
-        var response = await _client.PutAsJsonAsync($"/api/products/{product.Id}", request);
+        var response = await _client.PutAsJsonAsync($"/api/products/{productId}", updateRequest);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -411,20 +461,38 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
     [Fact]
     public async Task DeleteProduct_AsAdmin_ReturnsNoContent()
     {
-        // Arrange
-        var admin = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedAdminUser(db)
-        );
+        // Arrange - Register and promote to Admin
+        var registerRequest = ApiWebApplicationFactory.CreateRegisterRequest();
+        var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", registerRequest);
+        var tokenResponse = await registerResponse.Content.ReadAsAsync<TokenResponse>();
 
-        var product = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedProduct(db)
-        );
+        _factory.ExecuteDbContext(db =>
+        {
+            var user = db.Users.First(u => u.Email == registerRequest.Email);
+            user.Role = "Admin";
+            db.SaveChanges();
+        });
 
-        var token = TokenHelper.GenerateToken(admin);
-        _client.DefaultRequestHeaders.Authorization = new("Bearer", token);
+        _client.DefaultRequestHeaders.Authorization = new("Bearer", tokenResponse!.AccessToken);
+
+        // Seed a product
+        var productId = _factory.ExecuteDbContext(db =>
+        {
+            var product = new Product
+            {
+                Name = "Product to Delete",
+                Description = "Will be deleted",
+                Price = 9.99m,
+                Category = "Electronics",
+                StockQuantity = 1
+            };
+            db.Products.Add(product);
+            db.SaveChanges();
+            return product.Id;
+        });
 
         // Act
-        var response = await _client.DeleteAsync($"/api/products/{product.Id}");
+        var response = await _client.DeleteAsync($"/api/products/{productId}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NoContent);

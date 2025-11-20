@@ -1,11 +1,13 @@
+using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using SecureApi.Application.DTOs.Requests;
+using SecureApi.Application.DTOs.Responses;
 using SecureApi.Infrastructure.Persistence;
-using SecureApi.Tests.Helpers;
 
 namespace SecureApi.Tests.Fixtures;
 
@@ -120,6 +122,80 @@ public class ApiWebApplicationFactory : WebApplicationFactory<Program>
         var result = func(db);
         db.SaveChanges();
         return result;
+    }
+
+    /// <summary>
+    /// Helper to generate a unique test email.
+    /// </summary>
+    public static string GenerateTestEmail() =>
+        $"test_{Guid.NewGuid().ToString()[..8]}@example.com";
+
+    /// <summary>
+    /// Helper to generate a unique test username.
+    /// </summary>
+    public static string GenerateTestUsername() =>
+        $"user_{Guid.NewGuid().ToString()[..8]}";
+
+    /// <summary>
+    /// Helper to create a valid register request for testing.
+    /// </summary>
+    public static RegisterRequest CreateRegisterRequest(
+        string? email = null,
+        string password = "ValidPass123!",
+        string? fullName = null,
+        DateTime? birthDate = null)
+    {
+        return new RegisterRequest
+        {
+            Email = email ?? GenerateTestEmail(),
+            Password = password,
+            FullName = fullName ?? GenerateTestUsername(),
+            BirthDate = birthDate ?? new DateTime(1990, 1, 1)
+        };
+    }
+
+    /// <summary>
+    /// Helper to create a valid login request for testing.
+    /// </summary>
+    public static LoginRequest CreateLoginRequest(string email, string password = "ValidPass123!")
+    {
+        return new LoginRequest
+        {
+            Email = email,
+            Password = password
+        };
+    }
+
+    /// <summary>
+    /// Helper to register a user and set authorization header in one call.
+    /// Usage: await factory.RegisterAndAuthorizeAsync(client, birthDate, role);
+    /// </summary>
+    public async Task<string> RegisterAndAuthorizeAsync(
+        HttpClient client,
+        string? email = null,
+        string password = "ValidPass123!",
+        string? fullName = null,
+        DateTime? birthDate = null,
+        string? roleOverride = null)
+    {
+        var registerRequest = CreateRegisterRequest(email, password, fullName, birthDate);
+        var response = await client.PostAsJsonAsync("/api/auth/register", registerRequest);
+        response.EnsureSuccessStatusCode();
+        var tokenResponse = (await response.Content.ReadAsAsync<TokenResponse>())!;
+
+        // If role override requested, update in database
+        if (roleOverride != null)
+        {
+            ExecuteDbContext(db =>
+            {
+                var user = db.Users.First(u => u.Email == registerRequest.Email);
+                user.Role = roleOverride;
+                db.SaveChanges();
+            });
+        }
+
+        client.DefaultRequestHeaders.Authorization = new("Bearer", tokenResponse.AccessToken);
+        return tokenResponse.AccessToken;
     }
 
     protected override void Dispose(bool disposing)
