@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using SecureApi.Application.DTOs.Requests;
 using SecureApi.Application.DTOs.Responses;
+using SecureApi.Infrastructure.Persistence.Models;
 using SecureApi.Tests.Fixtures;
 using Xunit;
 
@@ -53,12 +54,7 @@ public class ExceptionHandlingTests : IClassFixture<ApiWebApplicationFactory>
     public async Task CreateProduct_WithInvalidPrice_ReturnsBadRequest()
     {
         // Arrange
-        var user = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedUser(db)
-        );
-
-        var token = TokenHelper.GenerateToken(user);
-        _client.DefaultRequestHeaders.Authorization = new("Bearer", token);
+        await _factory.RegisterAndAuthorizeAsync(_client);
 
         var invalidRequest = new CreateProductRequest(
             "Product",
@@ -99,14 +95,15 @@ public class ExceptionHandlingTests : IClassFixture<ApiWebApplicationFactory>
     public async Task UpdateProduct_WithInvalidId_Returns404()
     {
         // Arrange
-        var user = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedUser(db)
+        await _factory.RegisterAndAuthorizeAsync(_client);
+
+        var request = new UpdateProductRequest(
+            Name: "Updated",
+            Description: null,
+            Price: null,
+            Category: null,
+            StockQuantity: null
         );
-
-        var token = TokenHelper.GenerateToken(user);
-        _client.DefaultRequestHeaders.Authorization = new("Bearer", token);
-
-        var request = TestDataGenerator.CreateUpdateProductRequest(name: "Updated");
 
         // Act
         var response = await _client.PutAsJsonAsync("/api/products/99999", request);
@@ -119,12 +116,7 @@ public class ExceptionHandlingTests : IClassFixture<ApiWebApplicationFactory>
     public async Task DeleteProduct_WithInvalidId_Returns404()
     {
         // Arrange
-        var admin = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedAdminUser(db)
-        );
-
-        var token = TokenHelper.GenerateToken(admin);
-        _client.DefaultRequestHeaders.Authorization = new("Bearer", token);
+        await _factory.RegisterAndAuthorizeAsync(_client, roleOverride: "Admin");
 
         // Act
         var response = await _client.DeleteAsync("/api/products/99999");
@@ -141,9 +133,9 @@ public class ExceptionHandlingTests : IClassFixture<ApiWebApplicationFactory>
     public async Task Register_WithDuplicateEmail_Returns409WithCorrectFormat()
     {
         // Arrange
-        var email = TestDataGenerator.GenerateUniqueEmail();
-        var request1 = TestDataGenerator.CreateValidRegisterRequest(email: email);
-        var request2 = TestDataGenerator.CreateValidRegisterRequest(email: email);
+        var email = ApiWebApplicationFactory.GenerateTestEmail();
+        var request1 = ApiWebApplicationFactory.CreateRegisterRequest(email: email);
+        var request2 = ApiWebApplicationFactory.CreateRegisterRequest(email: email);
 
         await _client.PostAsJsonAsync("/api/auth/register", request1);
 
@@ -166,7 +158,7 @@ public class ExceptionHandlingTests : IClassFixture<ApiWebApplicationFactory>
     public async Task Login_WithInvalidCredentials_Returns401()
     {
         // Arrange
-        var loginRequest = TestDataGenerator.CreateLoginRequest("test@test.com", "WrongPassword");
+        var loginRequest = ApiWebApplicationFactory.CreateLoginRequest("test@test.com", "WrongPassword");
 
         // Act
         var response = await _client.PostAsJsonAsync("/api/auth/login", loginRequest);
@@ -181,16 +173,22 @@ public class ExceptionHandlingTests : IClassFixture<ApiWebApplicationFactory>
     public async Task DeleteProduct_AsNonAdmin_Returns403()
     {
         // Arrange
-        var user = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedUser(db)
-        );
+        await _factory.RegisterAndAuthorizeAsync(_client); // Regular user, not admin
 
         var product = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedProduct(db)
-        );
-
-        var token = TokenHelper.GenerateToken(user);
-        _client.DefaultRequestHeaders.Authorization = new("Bearer", token);
+        {
+            var p = new Product
+            {
+                Name = "Test Product",
+                Description = "Test Description",
+                Price = 19.99m,
+                Category = "Electronics",
+                StockQuantity = 10
+            };
+            db.Products.Add(p);
+            db.SaveChanges();
+            return p;
+        });
 
         // Act
         var response = await _client.DeleteAsync($"/api/products/{product.Id}");
@@ -202,17 +200,20 @@ public class ExceptionHandlingTests : IClassFixture<ApiWebApplicationFactory>
     [Fact]
     public async Task GetAdultProducts_WithUnderageToken_Returns403()
     {
-        // Arrange
-        var underageUser = _factory.ExecuteDbContext(db =>
+        // Arrange - Register a user, then manually make them underage
+        var registerRequest = ApiWebApplicationFactory.CreateRegisterRequest();
+        var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", registerRequest);
+        var tokenResponse = await registerResponse.Content.ReadFromJsonAsync<TokenResponse>();
+
+        // Make the user underage
+        _factory.ExecuteDbContext(db =>
         {
-            var user = TestDataGenerator.CreateUnderageUser();
-            db.Users.Add(user);
+            var user = db.Users.First(u => u.Email == registerRequest.Email);
+            user.BirthDate = DateTime.Today.AddYears(-17); // 17 years old
             db.SaveChanges();
-            return user;
         });
 
-        var token = TokenHelper.GenerateToken(underageUser);
-        _client.DefaultRequestHeaders.Authorization = new("Bearer", token);
+        _client.DefaultRequestHeaders.Authorization = new("Bearer", tokenResponse!.AccessToken);
 
         // Act
         var response = await _client.GetAsync("/api/products/adult/list");
@@ -283,7 +284,13 @@ public class ExceptionHandlingTests : IClassFixture<ApiWebApplicationFactory>
     public async Task CreateProduct_WithoutAuthHeader_Returns401()
     {
         // Arrange
-        var request = TestDataGenerator.CreateValidProductRequest();
+        var request = new CreateProductRequest(
+            Name: "Test Product",
+            Description: "Test Description",
+            Price: 19.99m,
+            Category: "Electronics",
+            StockQuantity: 10
+        );
         // No Authorization header set
 
         // Act
@@ -297,7 +304,13 @@ public class ExceptionHandlingTests : IClassFixture<ApiWebApplicationFactory>
     public async Task CreateProduct_WithInvalidBearerToken_Returns401()
     {
         // Arrange
-        var request = TestDataGenerator.CreateValidProductRequest();
+        var request = new CreateProductRequest(
+            Name: "Test Product",
+            Description: "Test Description",
+            Price: 19.99m,
+            Category: "Electronics",
+            StockQuantity: 10
+        );
         _client.DefaultRequestHeaders.Authorization = new("Bearer", "invalid.token.here");
 
         // Act

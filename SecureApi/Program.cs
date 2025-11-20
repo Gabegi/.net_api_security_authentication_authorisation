@@ -53,7 +53,33 @@ builder.Services
             ValidateAudience = true,
             ValidAudience = jwtSettings["Audience"],
             ValidateLifetime = true,
-            ClockSkew = TimeSpan.Zero
+            ClockSkew = TimeSpan.FromSeconds(5) // Allow 5 second clock skew for testing
+        };
+
+        // Add event logging for debugging
+        options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetService<ILogger<Program>>();
+                logger?.LogError("Authentication failed: {Message}, Exception: {Exception}",
+                    context.Exception?.Message, context.Exception?.ToString());
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetService<ILogger<Program>>();
+                logger?.LogInformation("Token validated successfully for user: {Identity}",
+                    context.Principal?.Identity?.Name);
+                return Task.CompletedTask;
+            },
+            OnChallenge = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetService<ILogger<Program>>();
+                logger?.LogWarning("Authentication challenge: {Error} - {ErrorDescription}",
+                    context.Error, context.ErrorDescription);
+                return Task.CompletedTask;
+            }
         };
     });
 

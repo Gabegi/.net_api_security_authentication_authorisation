@@ -30,7 +30,7 @@ public class AuthenticationTests : IClassFixture<ApiWebApplicationFactory>
     public async Task Register_WithValidData_ReturnsCreatedWithTokens()
     {
         // Arrange
-        var request = TestDataGenerator.CreateValidRegisterRequest();
+        var request = ApiWebApplicationFactory.CreateRegisterRequest();
 
         // Act
         var response = await _client.PostAsJsonAsync("/api/auth/register", request);
@@ -48,9 +48,9 @@ public class AuthenticationTests : IClassFixture<ApiWebApplicationFactory>
     public async Task Register_WithDuplicateEmail_ReturnConflict()
     {
         // Arrange
-        var email = TestDataGenerator.GenerateUniqueEmail();
-        var request1 = TestDataGenerator.CreateValidRegisterRequest(email: email);
-        var request2 = TestDataGenerator.CreateValidRegisterRequest(email: email);
+        var email = ApiWebApplicationFactory.GenerateTestEmail();
+        var request1 = ApiWebApplicationFactory.CreateRegisterRequest(email: email);
+        var request2 = ApiWebApplicationFactory.CreateRegisterRequest(email: email);
 
         // Act
         await _client.PostAsJsonAsync("/api/auth/register", request1);
@@ -64,7 +64,7 @@ public class AuthenticationTests : IClassFixture<ApiWebApplicationFactory>
     public async Task Register_WithInvalidEmail_ReturnsBadRequest()
     {
         // Arrange
-        var request = TestDataGenerator.CreateValidRegisterRequest(email: "not-an-email");
+        var request = ApiWebApplicationFactory.CreateRegisterRequest(email: "not-an-email");
 
         // Act
         var response = await _client.PostAsJsonAsync("/api/auth/register", request);
@@ -77,7 +77,7 @@ public class AuthenticationTests : IClassFixture<ApiWebApplicationFactory>
     public async Task Register_WithWeakPassword_ReturnsBadRequest()
     {
         // Arrange
-        var request = TestDataGenerator.CreateValidRegisterRequest(password: "weak");
+        var request = ApiWebApplicationFactory.CreateRegisterRequest(password: "weak");
 
         // Act
         var response = await _client.PostAsJsonAsync("/api/auth/register", request);
@@ -91,7 +91,7 @@ public class AuthenticationTests : IClassFixture<ApiWebApplicationFactory>
     {
         // Arrange
         var tooYoung = DateTime.UtcNow.AddYears(-10); // 10 years old
-        var request = TestDataGenerator.CreateValidRegisterRequest(birthDate: tooYoung);
+        var request = ApiWebApplicationFactory.CreateRegisterRequest(birthDate: tooYoung);
 
         // Act
         var response = await _client.PostAsJsonAsync("/api/auth/register", request);
@@ -104,7 +104,7 @@ public class AuthenticationTests : IClassFixture<ApiWebApplicationFactory>
     public async Task Register_SavesUserToDatabase()
     {
         // Arrange
-        var request = TestDataGenerator.CreateValidRegisterRequest();
+        var request = ApiWebApplicationFactory.CreateRegisterRequest();
 
         // Act
         await _client.PostAsJsonAsync("/api/auth/register", request);
@@ -124,7 +124,7 @@ public class AuthenticationTests : IClassFixture<ApiWebApplicationFactory>
     public async Task Login_WithValidCredentials_ReturnsOkWithTokens()
     {
         // Arrange - Register a user first
-        var registerRequest = TestDataGenerator.CreateValidRegisterRequest();
+        var registerRequest = ApiWebApplicationFactory.CreateRegisterRequest();
         var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", registerRequest);
         registerResponse.StatusCode.Should().Be(HttpStatusCode.Created,
             "Registration must succeed before testing login. Response: " + await registerResponse.Content.ReadAsStringAsync());
@@ -139,7 +139,7 @@ public class AuthenticationTests : IClassFixture<ApiWebApplicationFactory>
         passwordVerifies.Should().BeTrue($"Password should verify against stored hash. Plain: {registerRequest.Password}, Hash: {userInDb.PasswordHash}");
 
         // Login with the registered credentials
-        var loginRequest = TestDataGenerator.CreateLoginRequest(registerRequest.Email, registerRequest.Password);
+        var loginRequest = ApiWebApplicationFactory.CreateLoginRequest(registerRequest.Email, registerRequest.Password);
 
         // Verify the credentials we're using
         loginRequest.Email.Should().NotBeNullOrEmpty();
@@ -169,7 +169,7 @@ public class AuthenticationTests : IClassFixture<ApiWebApplicationFactory>
     public async Task Login_WithNonexistentEmail_ReturnsUnauthorized()
     {
         // Arrange
-        var loginRequest = TestDataGenerator.CreateLoginRequest("nonexistent@test.com");
+        var loginRequest = ApiWebApplicationFactory.CreateLoginRequest("nonexistent@test.com");
 
         // Act
         var response = await _client.PostAsJsonAsync("/api/auth/login", loginRequest);
@@ -182,10 +182,10 @@ public class AuthenticationTests : IClassFixture<ApiWebApplicationFactory>
     public async Task Login_WithWrongPassword_ReturnsUnauthorized()
     {
         // Arrange
-        var registerRequest = TestDataGenerator.CreateValidRegisterRequest();
+        var registerRequest = ApiWebApplicationFactory.CreateRegisterRequest();
         await _client.PostAsJsonAsync("/api/auth/register", registerRequest);
 
-        var loginRequest = TestDataGenerator.CreateLoginRequest(registerRequest.Email, "WrongPassword123!");
+        var loginRequest = ApiWebApplicationFactory.CreateLoginRequest(registerRequest.Email, "WrongPassword123!");
 
         // Act
         var response = await _client.PostAsJsonAsync("/api/auth/login", loginRequest);
@@ -198,10 +198,10 @@ public class AuthenticationTests : IClassFixture<ApiWebApplicationFactory>
     public async Task Login_StoresRefreshTokenInDatabase()
     {
         // Arrange
-        var registerRequest = TestDataGenerator.CreateValidRegisterRequest();
+        var registerRequest = ApiWebApplicationFactory.CreateRegisterRequest();
         await _client.PostAsJsonAsync("/api/auth/register", registerRequest);
 
-        var loginRequest = TestDataGenerator.CreateLoginRequest(registerRequest.Email, registerRequest.Password);
+        var loginRequest = ApiWebApplicationFactory.CreateLoginRequest(registerRequest.Email, registerRequest.Password);
 
         // Act
         var response = await _client.PostAsJsonAsync("/api/auth/login", loginRequest);
@@ -222,10 +222,10 @@ public class AuthenticationTests : IClassFixture<ApiWebApplicationFactory>
     public async Task RefreshToken_WithValidToken_ReturnsNewTokens()
     {
         // Arrange
-        var registerRequest = TestDataGenerator.CreateValidRegisterRequest();
+        var registerRequest = ApiWebApplicationFactory.CreateRegisterRequest();
         await _client.PostAsJsonAsync("/api/auth/register", registerRequest);
 
-        var loginRequest = TestDataGenerator.CreateLoginRequest(registerRequest.Email, registerRequest.Password);
+        var loginRequest = ApiWebApplicationFactory.CreateLoginRequest(registerRequest.Email, registerRequest.Password);
         var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", loginRequest);
         var loginToken = await loginResponse.Content.ReadFromJsonAsync<TokenResponse>();
 
@@ -258,10 +258,10 @@ public class AuthenticationTests : IClassFixture<ApiWebApplicationFactory>
     public async Task RefreshToken_RevokesPreviousToken()
     {
         // Arrange
-        var registerRequest = TestDataGenerator.CreateValidRegisterRequest();
+        var registerRequest = ApiWebApplicationFactory.CreateRegisterRequest();
         await _client.PostAsJsonAsync("/api/auth/register", registerRequest);
 
-        var loginRequest = TestDataGenerator.CreateLoginRequest(registerRequest.Email, registerRequest.Password);
+        var loginRequest = ApiWebApplicationFactory.CreateLoginRequest(registerRequest.Email, registerRequest.Password);
         var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", loginRequest);
         var loginToken = await loginResponse.Content.ReadFromJsonAsync<TokenResponse>();
         var oldRefreshToken = loginToken!.RefreshToken;
@@ -285,10 +285,10 @@ public class AuthenticationTests : IClassFixture<ApiWebApplicationFactory>
     public async Task Logout_WithValidToken_ReturnsOk()
     {
         // Arrange
-        var registerRequest = TestDataGenerator.CreateValidRegisterRequest();
+        var registerRequest = ApiWebApplicationFactory.CreateRegisterRequest();
         await _client.PostAsJsonAsync("/api/auth/register", registerRequest);
 
-        var loginRequest = TestDataGenerator.CreateLoginRequest(registerRequest.Email, registerRequest.Password);
+        var loginRequest = ApiWebApplicationFactory.CreateLoginRequest(registerRequest.Email, registerRequest.Password);
         var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", loginRequest);
         var loginToken = await loginResponse.Content.ReadFromJsonAsync<TokenResponse>();
 
@@ -305,10 +305,10 @@ public class AuthenticationTests : IClassFixture<ApiWebApplicationFactory>
     public async Task Logout_RevokesRefreshToken()
     {
         // Arrange
-        var registerRequest = TestDataGenerator.CreateValidRegisterRequest();
+        var registerRequest = ApiWebApplicationFactory.CreateRegisterRequest();
         await _client.PostAsJsonAsync("/api/auth/register", registerRequest);
 
-        var loginRequest = TestDataGenerator.CreateLoginRequest(registerRequest.Email, registerRequest.Password);
+        var loginRequest = ApiWebApplicationFactory.CreateLoginRequest(registerRequest.Email, registerRequest.Password);
         var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", loginRequest);
         var loginToken = await loginResponse.Content.ReadFromJsonAsync<TokenResponse>();
 

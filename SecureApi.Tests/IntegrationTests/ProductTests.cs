@@ -32,7 +32,18 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
         // Arrange
         _factory.ExecuteDbContext(db =>
         {
-            TestDataGenerator.SeedProducts(db, 3);
+            for (int i = 0; i < 3; i++)
+            {
+                db.Products.Add(new Product
+                {
+                    Name = $"Product {i}",
+                    Description = $"Description {i}",
+                    Price = 10.00m + i,
+                    Category = "Electronics",
+                    StockQuantity = 10
+                });
+            }
+            db.SaveChanges();
         });
 
         // Act
@@ -49,8 +60,19 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
     {
         // Arrange
         var product = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedProduct(db)
-        );
+        {
+            var p = new Product
+            {
+                Name = "Test Product",
+                Description = "Test Description",
+                Price = 19.99m,
+                Category = "Electronics",
+                StockQuantity = 10
+            };
+            db.Products.Add(p);
+            db.SaveChanges();
+            return p;
+        });
 
         // Act
         var response = await _client.GetAsync($"/api/products/{product.Id}");
@@ -82,9 +104,25 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
         // Arrange
         _factory.ExecuteDbContext(db =>
         {
-            TestDataGenerator.SeedProducts(db, 2);
-            var adultProduct = TestDataGenerator.CreateAdultProduct();
-            db.Products.Add(adultProduct);
+            for (int i = 0; i < 2; i++)
+            {
+                db.Products.Add(new Product
+                {
+                    Name = $"Product {i}",
+                    Description = $"Description {i}",
+                    Price = 10.00m + i,
+                    Category = "Electronics",
+                    StockQuantity = 10
+                });
+            }
+            db.Products.Add(new Product
+            {
+                Name = "Adult Product",
+                Description = "Adult only",
+                Price = 99.99m,
+                Category = "Adult",
+                StockQuantity = 5
+            });
             db.SaveChanges();
         });
 
@@ -192,7 +230,13 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
     public async Task CreateProduct_WithoutAuth_ReturnsUnauthorized()
     {
         // Arrange
-        var request = TestDataGenerator.CreateValidProductRequest();
+        var request = new CreateProductRequest(
+            Name: "Test Product",
+            Description: "Test Description",
+            Price: 19.99m,
+            Category: "Electronics",
+            StockQuantity: 10
+        );
 
         // Act
         var response = await _client.PostAsJsonAsync("/api/products", request);
@@ -313,10 +357,27 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
     {
         // Arrange
         var product = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedProduct(db)
-        );
+        {
+            var p = new Product
+            {
+                Name = "Test Product",
+                Description = "Test Description",
+                Price = 19.99m,
+                Category = "Electronics",
+                StockQuantity = 10
+            };
+            db.Products.Add(p);
+            db.SaveChanges();
+            return p;
+        });
 
-        var request = TestDataGenerator.CreateUpdateProductRequest(name: "Updated");
+        var request = new UpdateProductRequest(
+            Name: "Updated",
+            Description: null,
+            Price: null,
+            Category: null,
+            StockQuantity: null
+        );
 
         // Act
         var response = await _client.PutAsJsonAsync($"/api/products/{product.Id}", request);
@@ -433,8 +494,19 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
     {
         // Arrange
         var product = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedProduct(db)
-        );
+        {
+            var p = new Product
+            {
+                Name = "Test Product",
+                Description = "Test Description",
+                Price = 19.99m,
+                Category = "Electronics",
+                StockQuantity = 10
+            };
+            db.Products.Add(p);
+            db.SaveChanges();
+            return p;
+        });
 
         // Act
         var response = await _client.DeleteAsync($"/api/products/{product.Id}");
