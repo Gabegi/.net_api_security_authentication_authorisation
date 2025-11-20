@@ -367,18 +367,19 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
     [Fact]
     public async Task UpdateProduct_WithNonexistentId_ReturnsNotFound()
     {
-        // Arrange
-        var user = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedUser(db)
+        // Arrange - Register and authorize
+        await _factory.RegisterAndAuthorizeAsync(_client);
+
+        var updateRequest = new UpdateProductRequest(
+            Name: "Updated",
+            Description: null,
+            Price: null,
+            Category: null,
+            StockQuantity: null
         );
 
-        var token = TokenHelper.GenerateToken(user);
-        _client.DefaultRequestHeaders.Authorization = new("Bearer", token);
-
-        var request = TestDataGenerator.CreateUpdateProductRequest(name: "Updated");
-
         // Act
-        var response = await _client.PutAsJsonAsync("/api/products/99999", request);
+        var response = await _client.PutAsJsonAsync("/api/products/99999", updateRequest);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
@@ -387,33 +388,39 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
     [Fact]
     public async Task UpdateProduct_WithPartialData_PreservesUnchangedFields()
     {
-        // Arrange
-        var user = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedUser(db)
-        );
+        // Arrange - Register and authorize
+        await _factory.RegisterAndAuthorizeAsync(_client);
 
-        var product = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedProduct(db, createdByUserId: user.Id)
-        );
+        // Seed a product
+        var productId = _factory.ExecuteDbContext(db =>
+        {
+            var product = new Product
+            {
+                Name = "Original Name",
+                Description = "Original description",
+                Price = 29.99m,
+                Category = "Electronics",
+                StockQuantity = 20
+            };
+            db.Products.Add(product);
+            db.SaveChanges();
+            return product.Id;
+        });
 
-        var token = TokenHelper.GenerateToken(user);
-        _client.DefaultRequestHeaders.Authorization = new("Bearer", token);
-
-        var originalName = product.Name;
-        var request = new UpdateProductRequest(
-            null, // Don't change name
-            "New description",
-            null, // Don't change price
-            null,
-            null
+        var updateRequest = new UpdateProductRequest(
+            Name: null, // Don't change name
+            Description: "New description",
+            Price: null, // Don't change price
+            Category: null,
+            StockQuantity: null
         );
 
         // Act
-        var response = await _client.PutAsJsonAsync($"/api/products/{product.Id}", request);
+        var response = await _client.PutAsJsonAsync($"/api/products/{productId}", updateRequest);
         var updatedProduct = await response.Content.ReadFromJsonAsync<Product>();
 
         // Assert
-        updatedProduct!.Name.Should().Be(originalName); // Unchanged
+        updatedProduct!.Name.Should().Be("Original Name"); // Unchanged
         updatedProduct.Description.Should().Be("New description"); // Changed
     }
 
@@ -439,20 +446,27 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
     [Fact]
     public async Task DeleteProduct_AsUser_ReturnsForbidden()
     {
-        // Arrange
-        var user = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedUser(db)
-        );
+        // Arrange - Register regular user (no admin)
+        await _factory.RegisterAndAuthorizeAsync(_client);
 
-        var product = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedProduct(db)
-        );
-
-        var token = TokenHelper.GenerateToken(user);
-        _client.DefaultRequestHeaders.Authorization = new("Bearer", token);
+        // Seed a product
+        var productId = _factory.ExecuteDbContext(db =>
+        {
+            var product = new Product
+            {
+                Name = "Protected Product",
+                Description = "Cannot be deleted",
+                Price = 39.99m,
+                Category = "Electronics",
+                StockQuantity = 1
+            };
+            db.Products.Add(product);
+            db.SaveChanges();
+            return product.Id;
+        });
 
         // Act
-        var response = await _client.DeleteAsync($"/api/products/{product.Id}");
+        var response = await _client.DeleteAsync($"/api/products/{productId}");
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
@@ -501,13 +515,8 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
     [Fact]
     public async Task DeleteProduct_WithNonexistentId_ReturnsNotFound()
     {
-        // Arrange
-        var admin = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedAdminUser(db)
-        );
-
-        var token = TokenHelper.GenerateToken(admin);
-        _client.DefaultRequestHeaders.Authorization = new("Bearer", token);
+        // Arrange - Register and promote to Admin
+        await _factory.RegisterAndAuthorizeAsync(_client, roleOverride: "Admin");
 
         // Act
         var response = await _client.DeleteAsync("/api/products/99999");
@@ -519,24 +528,31 @@ public class ProductTests : IClassFixture<ApiWebApplicationFactory>
     [Fact]
     public async Task DeleteProduct_RemovesFromDatabase()
     {
-        // Arrange
-        var admin = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedAdminUser(db)
-        );
+        // Arrange - Register and promote to Admin
+        await _factory.RegisterAndAuthorizeAsync(_client, roleOverride: "Admin");
 
-        var product = _factory.ExecuteDbContext(db =>
-            TestDataGenerator.SeedProduct(db)
-        );
-
-        var token = TokenHelper.GenerateToken(admin);
-        _client.DefaultRequestHeaders.Authorization = new("Bearer", token);
+        // Seed a product
+        var productId = _factory.ExecuteDbContext(db =>
+        {
+            var product = new Product
+            {
+                Name = "Product To Remove",
+                Description = "Will be removed",
+                Price = 15.00m,
+                Category = "Electronics",
+                StockQuantity = 5
+            };
+            db.Products.Add(product);
+            db.SaveChanges();
+            return product.Id;
+        });
 
         // Act
-        await _client.DeleteAsync($"/api/products/{product.Id}");
+        await _client.DeleteAsync($"/api/products/{productId}");
 
         // Assert
         var productExists = _factory.ExecuteDbContext(db =>
-            db.Products.Any(p => p.Id == product.Id)
+            db.Products.Any(p => p.Id == productId)
         );
         productExists.Should().BeFalse();
     }
