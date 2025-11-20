@@ -56,9 +56,9 @@ builder.Services
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(secretKey)),
             ValidateIssuer = true,
-            ValidIssuer = jwtSettings["Issuer"],
+            ValidIssuer = issuer,
             ValidateAudience = true,
-            ValidAudience = jwtSettings["Audience"],
+            ValidAudience = audience,
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromSeconds(5) // Allow 5 second clock skew for testing
         };
@@ -66,6 +66,14 @@ builder.Services
         // Add event logging for debugging
         options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
         {
+            OnMessageReceived = context =>
+            {
+                var logger = context.HttpContext.RequestServices.GetService<ILogger<Program>>();
+                var authHeader = context.HttpContext.Request.Headers.Authorization.ToString();
+                logger?.LogInformation("Message received - Auth header present: {HasAuth}, Header: {Header}",
+                    !string.IsNullOrEmpty(authHeader), authHeader.Length > 0 ? $"{authHeader.Substring(0, Math.Min(50, authHeader.Length))}..." : "NONE");
+                return Task.CompletedTask;
+            },
             OnAuthenticationFailed = context =>
             {
                 var logger = context.HttpContext.RequestServices.GetService<ILogger<Program>>();

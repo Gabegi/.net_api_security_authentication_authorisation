@@ -1,6 +1,8 @@
 using System.Net.Http.Json;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -8,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SecureApi.Application.DTOs.Requests;
 using SecureApi.Application.DTOs.Responses;
 using SecureApi.Infrastructure.Persistence;
+using SecureApi.Tests.Infrastructure;
 
 namespace SecureApi.Tests.Fixtures;
 
@@ -26,10 +29,14 @@ public class ApiWebApplicationFactory : WebApplicationFactory<Program>
         // Set environment to Testing to disable rate limiting
         builder.UseEnvironment("Testing");
 
-        // Override JWT configuration to match TokenHelper - these MUST be identical
-        // IMPORTANT: Use ConfigureAppConfiguration instead of UseSetting because UseSetting
-        // only affects WebHost settings, not the IConfiguration that TokenService reads at startup.
-        // ConfigureAppConfiguration properly injects test config before the app starts.
+        // Set JWT configuration via environment variables BEFORE app starts
+        // Environment variables are read before ConfigureAppConfiguration, ensuring
+        // the JWT middleware gets the correct values at initialization time
+        Environment.SetEnvironmentVariable("JWT_SECRET_KEY", "your-super-secret-key-min-32-characters-long!");
+        Environment.SetEnvironmentVariable("JWT_ISSUER", "https://localhost:7001");
+        Environment.SetEnvironmentVariable("JWT_AUDIENCE", "https://localhost:7001");
+
+        // Also set in configuration for TokenService and other components that read config
         builder.ConfigureAppConfiguration((context, config) =>
         {
             config.AddInMemoryCollection(new Dictionary<string, string>
@@ -42,9 +49,11 @@ public class ApiWebApplicationFactory : WebApplicationFactory<Program>
             }!);
         });
 
-        builder.ConfigureServices(services =>
+        // CRITICAL: Use ConfigureTestServices instead of ConfigureServices
+        // This runs AFTER Program.cs configures services, allowing us to override authentication
+        builder.ConfigureTestServices(services =>
         {
-            // Remove the real DbContext registration
+            // 1. Remove the real DbContext registration
             var dbDescriptor = services.SingleOrDefault(d =>
                 d.ServiceType == typeof(DbContextOptions<ApplicationDbContext>));
 
@@ -53,7 +62,7 @@ public class ApiWebApplicationFactory : WebApplicationFactory<Program>
                 services.Remove(dbDescriptor);
             }
 
-            // Create and open a connection to SQLite in-memory database
+            // 2. Create and open a connection to SQLite in-memory database
             // This connection must stay open for the database to persist
             _connection = new SqliteConnection("DataSource=:memory:");
             _connection.Open();
@@ -64,10 +73,29 @@ public class ApiWebApplicationFactory : WebApplicationFactory<Program>
                 options.UseSqlite(_connection);
             });
 
-            // Note: Rate limiting middleware will still run but with default unlimited configuration
-            // since we don't re-register the policies, it effectively allows all requests
+            // 3. Replace JWT authentication with test authentication handler
+            // This allows tests to use simple tokens without JWT validation
+            services.Configure<AuthenticationOptions>(options =>
+            {
+                options.DefaultAuthenticateScheme = TestAuthHandler.AuthenticationScheme;
+                options.DefaultChallengeScheme = TestAuthHandler.AuthenticationScheme;
+            });
 
-            // Create the database schema
+            // Remove the old JWT Bearer scheme and its configuration
+            var jwtSchemeDescriptors = services
+                .Where(d => d.ImplementationType?.Name.Contains("JwtBearer") == true)
+                .ToList();
+            foreach (var descriptor in jwtSchemeDescriptors)
+            {
+                services.Remove(descriptor);
+            }
+
+            // Add test authentication handler
+            services.AddAuthentication(TestAuthHandler.AuthenticationScheme)
+                .AddScheme<AuthenticationSchemeOptions, TestAuthHandler>(
+                    TestAuthHandler.AuthenticationScheme, options => { });
+
+            // 4. Create the database schema
             var sp = services.BuildServiceProvider();
             using var scope = sp.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -196,6 +224,32 @@ public class ApiWebApplicationFactory : WebApplicationFactory<Program>
 
         client.DefaultRequestHeaders.Authorization = new("Bearer", tokenResponse.AccessToken);
         return tokenResponse.AccessToken;
+    }
+
+    /// <summary>
+    /// Helper to authenticate HTTP client with test Admin token.
+    /// Uses simple token format that TestAuthHandler recognizes.
+    /// </summary>
+    public static void AuthenticateAsAdmin(HttpClient client)
+    {
+        client.DefaultRequestHeaders.Authorization = new("Bearer", "TestToken-Admin");
+    }
+
+    /// <summary>
+    /// Helper to authenticate HTTP client with test User token.
+    /// Uses simple token format that TestAuthHandler recognizes.
+    /// </summary>
+    public static void AuthenticateAsUser(HttpClient client)
+    {
+        client.DefaultRequestHeaders.Authorization = new("Bearer", "TestToken-User");
+    }
+
+    /// <summary>
+    /// Helper to clear authentication from HTTP client.
+    /// </summary>
+    public static void ClearAuthentication(HttpClient client)
+    {
+        client.DefaultRequestHeaders.Authorization = null;
     }
 
     protected override void Dispose(bool disposing)
