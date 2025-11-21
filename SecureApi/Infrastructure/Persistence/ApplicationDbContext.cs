@@ -33,6 +33,11 @@ public class ApplicationDbContext : DbContext
     public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
 
     /// <summary>
+    /// Gets or sets the ApiKeys table.
+    /// </summary>
+    public DbSet<ApiKey> ApiKeys { get; set; } = null!;
+
+    /// <summary>
     /// Configures the model and applies constraints, relationships, and indexes.
     /// </summary>
     /// <param name="modelBuilder">The model builder</param>
@@ -202,6 +207,74 @@ public class ApplicationDbContext : DbContext
 
             // Table name
             entity.ToTable("RefreshTokens");
+        });
+
+        // Configure ApiKey entity
+        modelBuilder.Entity<ApiKey>(entity =>
+        {
+            // Primary key
+            entity.HasKey(e => e.Id)
+                .HasName("PK_ApiKey_Id");
+
+            // Key column configuration
+            entity.Property(e => e.Key)
+                .IsRequired()
+                .HasMaxLength(512)
+                .HasColumnType("TEXT");
+
+            // Create a unique index on Key for fast lookups and uniqueness
+            entity.HasIndex(e => e.Key)
+                .IsUnique()
+                .HasDatabaseName("IX_ApiKey_Key_Unique");
+
+            // Name column configuration
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(255)
+                .HasColumnType("TEXT");
+
+            // Owner column configuration
+            entity.Property(e => e.Owner)
+                .IsRequired()
+                .HasMaxLength(255)
+                .HasColumnType("TEXT");
+
+            // Index on Owner for finding keys by owner
+            entity.HasIndex(e => e.Owner)
+                .HasDatabaseName("IX_ApiKey_Owner");
+
+            // Scopes column configuration (JSON array stored as text)
+            entity.Property(e => e.Scopes)
+                .IsRequired()
+                .HasColumnType("TEXT");
+
+            // CreatedAt column configuration
+            entity.Property(e => e.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .ValueGeneratedOnAdd();
+
+            // ExpiresAt column configuration (nullable)
+            entity.Property(e => e.ExpiresAt)
+                .IsRequired(false)
+                .HasColumnType("DATETIME");
+
+            // Index on ExpiresAt for finding expired keys
+            entity.HasIndex(e => e.ExpiresAt)
+                .HasDatabaseName("IX_ApiKey_ExpiresAt");
+
+            // IsActive column configuration
+            entity.Property(e => e.IsActive)
+                .IsRequired()
+                .HasDefaultValue(true);
+
+            // LastUsedAt column configuration (nullable)
+            entity.Property(e => e.LastUsedAt)
+                .IsRequired(false)
+                .HasColumnType("DATETIME");
+
+            // Table name
+            entity.ToTable("ApiKeys");
         });
     }
 }

@@ -245,6 +245,9 @@ if (!app.Environment.IsEnvironment("Testing"))
 // 7. Authentication (verify JWT tokens)
 app.UseAuthentication();
 
+// 7.5. API Key Authentication (for webhooks and partner endpoints)
+app.UseApiKeyAuthentication();
+
 // 8. Authorization (check permissions)
 app.UseAuthorization();
 
@@ -254,6 +257,7 @@ app.UseAuthorization();
 
 app.MapAuthEndpoints();
 app.MapProductEndpoints();
+app.MapWebhookEndpoints();
 
 app.Run();
 
