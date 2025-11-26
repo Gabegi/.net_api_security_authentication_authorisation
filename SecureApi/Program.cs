@@ -213,7 +213,11 @@ await app.SeedInitialAdminAsync();
 app.UseGlobalExceptionHandler();
 
 // 2. HTTPS redirection (HTTP → HTTPS) - MUST come before HSTS
-app.UseHttpsRedirection();
+// Disabled in development for easier testing
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 // 3. HSTS (only in production, not on localhost)
 // Strict-Transport-Security: forces HTTPS for 1 year

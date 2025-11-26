@@ -69,3 +69,5 @@ nunit-*.xml
 /.vs/APISecurity.NET
 /.vs/APISecurity.NET
 /SecureApi/.vs/SecureApi/v17
+SecureApi/secureapi.db-wal
+*.db-shm
