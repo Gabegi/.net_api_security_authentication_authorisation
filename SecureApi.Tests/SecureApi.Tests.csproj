@@ -26,4 +26,8 @@
     <ProjectReference Include="..\SecureApi\SecureApi.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="IntegrationTests\" />
+  </ItemGroup>
+
 </Project>
