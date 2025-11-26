@@ -13,15 +13,17 @@ echo "Status: $STATUS (expected: 200)"
 echo "$RESP" | head -1 | grep -o '"name":"[^"]*' | head -3
 
 echo -e "\n❌ TEST 2: Protected Endpoint Without Auth (should fail)"
-echo "GET /api/auth/profile"
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X GET $API_URL/api/auth/profile)
+echo "POST /api/products (requires authentication)"
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST $API_URL/api/products \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Test","description":"Test","price":100,"category":"Test","stockQuantity":10}')
 echo "Status: $STATUS (expected: 401)"
 
 echo -e "\n🔑 TEST 3: Login with Valid Credentials"
 echo "POST /api/auth/login"
 RESPONSE=$(curl -s -X POST $API_URL/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@example.com","password":"SecurePass123!"}')
+  -d '{"email":"admin@secureapi.com","password":"Admin@123!"}')
   
 TOKEN=$(echo "$RESPONSE" | grep -o '"accessToken":"[^"]*' | cut -d'"' -f4)
 if [ -n "$TOKEN" ]; then
