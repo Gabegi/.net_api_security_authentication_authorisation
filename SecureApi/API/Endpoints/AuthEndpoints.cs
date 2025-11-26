@@ -74,7 +74,8 @@ public static class AuthEndpoints
         HttpContext httpContext)
     {
         return await resultHandler.HandleRegisterAsync(
-            () => authService.RegisterAsync(request, HttpContextHelper.GetClientIp(httpContext))
+            () => authService.RegisterAsync(request, HttpContextHelper.GetClientIp(httpContext)),
+            httpContext
         );
     }
 
@@ -89,7 +90,8 @@ public static class AuthEndpoints
         HttpContext httpContext)
     {
         return await resultHandler.HandleLoginAsync(
-            () => authService.LoginAsync(request, HttpContextHelper.GetClientIp(httpContext))
+            () => authService.LoginAsync(request, HttpContextHelper.GetClientIp(httpContext)),
+            httpContext
         );
     }
 
@@ -104,7 +106,8 @@ public static class AuthEndpoints
         HttpContext httpContext)
     {
         return await resultHandler.HandleRefreshAsync(
-            () => authService.RefreshTokenAsync(request, HttpContextHelper.GetClientIp(httpContext))
+            () => authService.RefreshTokenAsync(request, HttpContextHelper.GetClientIp(httpContext)),
+            httpContext
         );
     }
 
@@ -115,10 +118,12 @@ public static class AuthEndpoints
     private static async Task<IResult> HandleLogout(
         LogoutRequest request,
         IAuthService authService,
-        IAuthResultHandler resultHandler)
+        IAuthResultHandler resultHandler,
+        HttpContext httpContext)
     {
         return await resultHandler.HandleLogoutAsync(
-            () => authService.LogoutAsync(request)
+            () => authService.LogoutAsync(request),
+            httpContext
         );
     }
 }
